@@ -1,0 +1,33 @@
+int mod(int x, int y);
+int GCD(int x, int y);
+
+int main() {
+   int n1;
+   int n2;
+   int result;
+ 
+   n1 = read();
+   n2 = read();
+   result = GCD(n1,n2);
+   print(result);
+   println();
+}
+
+int mod(int x, int y) {
+   while (x >= y) 
+       x = x - y;
+   return x;
+}
+
+int GCD(int x, int y) {
+   int tmp;
+   if (x < y) {
+       tmp = x;
+       x = y;
+       y = tmp; 
+   }
+   if (y == 0)
+      return x;
+   else
+      return GCD(y, mod(x,y));
+}

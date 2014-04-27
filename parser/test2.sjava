@@ -1,0 +1,47 @@
+class employee {
+   int IDnumber;
+   int salary;
+}
+
+class company {
+  int numEmployees;
+  employee employees[];
+}
+
+
+company ReadCompany();
+void WriteCompany(company C);
+
+void main() {
+   company C;
+
+   C = ReadCompany();
+   WriteCompany(C);
+}
+
+company ReadCompany() {
+   company c;
+   int i;
+
+   c = new company();
+   c.numEmployees = read();
+   c.employess = new int[c.numEmployees];
+   for (i=0; i < c.numEmployees; i++) {
+      e.employees[i] = new employee();
+      c.employees[i].IDnumber = read();
+      c.employees[i].salary = read();
+   }
+   return c;
+}
+
+void WriteCompany(company c) {
+   int i;
+
+   print(c.numemployees);
+   println();
+   for (i=0; i < c.numEmployees; i++) {
+      print(c.employees[i].IDnumber);
+      print(c.employees[i].salary);
+      println();
+   }
+}

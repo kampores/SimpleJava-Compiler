@@ -1,0 +1,54 @@
+options {
+  JAVA_UNICODE_ESCAPE = true;
+  IGNORE_CASE=false;
+  DEBUG_PARSER=true;
+}
+PARSER_BEGIN(calc)
+public class calc {
+}
+PARSER_END(calc)
+
+SKIP : 
+{
+        " "
+}
+
+TOKEN : 
+{
+        < INTEGER_LITERAL: (["0"-"9"])+ >
+|       < PLUS:  "+"    >
+|       < MINUS:  "-"   >
+|       < MULTIPLY:  "*">
+|       < DIVIDE:  "/"  >
+|       < LPAREN: "("   >
+|       < RPAREN: ")"   >
+|       < EOL: "\n" >
+}
+
+void complete_expression():
+{  }
+{
+   expression() <EOL> {  }
+}
+
+void expression():
+{ }
+{
+   term() ((<PLUS> | <MINUS>)  term())* 
+}
+
+void term():
+{ }
+{
+  factor() ( (<MULTIPLY> |  <DIVIDE>)  factor() )*
+}
+
+void factor():
+{ }
+{
+    <MINUS> factor() 
+|   <INTEGER_LITERAL> 
+|   <LPAREN>  expression() <RPAREN> 
+}
+
+

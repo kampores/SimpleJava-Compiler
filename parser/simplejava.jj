@@ -1,0 +1,392 @@
+options {
+  JAVA_UNICODE_ESCAPE = true;
+  IGNORE_CASE=false;
+  DEBUG_PARSER=true;
+}
+
+PARSER_BEGIN(simplejava)
+
+public class simplejava {
+}
+
+PARSER_END(simplejava)
+
+TOKEN_MGR_DECLS : 
+{
+	public static int numcomments = 0;
+}
+
+SKIP :
+{
+    < "/*" > { numcomments++; SwitchTo(IN_COMMENT);} 
+}
+
+<IN_COMMENT>
+SKIP:
+{
+	< "*/" > { numcomments--; if (numcomments == 0) SwitchTo(DEFAULT);}
+}
+
+<IN_COMMENT>
+SKIP:
+{
+	< ~[] > 
+}
+
+SKIP : /* White space */ 
+{
+  	 "\t" 
+|    " "   
+|    "\n"
+|    "\f"
+|    "\r"
+}
+
+TOKEN: /* Single line comment */
+{
+	<SINGLELINECOMMENT: "//" (~["\n","\r"])* ("\n"|"\r"|"\r\n")>
+}
+
+TOKEN: /* RESERVED WORDS AND LITERALS */
+{
+	< FOR: "for" >
+|   < UNDERLINE: "_" >
+|	< IF: "if" >
+|	< WHILE: "while" >
+|	< DO: "do">
+|	< ELSE: "else" >
+|	< CLASS: "class" >
+|	< BOOLEAN: "boolean"> 
+|   < TRUE: "true" >
+|	< FALSE: "false" >
+| 	< RETURN: "return" >
+|	< NEW: "new" >
+|	< READ: "read" >
+|	< PRINT: "print" >
+|	< PRINTLN: "println" >
+|	< VOID: "void" > 
+}
+TOKEN : /* Integer Literals */
+{
+	< INTEGER_LITERAL: (["0"-"9"])+ >
+}
+
+TOKEN: /* Identifiers */
+{  
+	<IDENTIFIER:  (["a"-"z","A"-"Z","_"])(["a"-"z","A"-"Z","0"-"9"])* > 
+}
+
+TOKEN: /* Symbol */
+{
+	< PLUS: "+" >
+|	< SEMICOLON: ";">
+|   < MINUS: "-" >
+|	< MULTIPLY: "*" >
+|	< DIVIDE: "/" > 
+|	< LPAREN: "(" >
+|	< RPAREN: ")" >
+|	< LBRACE: "{" >
+| 	< RBRACE: "}" >
+|	< LBRACKET: "[" >
+|	< RBRACKET: "]" >
+|   < PERIOD: "." >
+|	< COMMA: "," >
+|	< EQUALEQUAL: "==" >
+|	< GETS: "=" >
+|   < NOTEQUALTO: "!=" >
+|	< NOT: "!" > 
+|	< LESSTHAN: "<" >
+|	< LESSTHANOREQUALTO: "<=" >
+|	< GREATERTHAN: ">" >
+|	< GREATERTHANOREQUALTO: ">=" >
+|	< AND: "&&" >
+|   < OR: "||" >
+|   < PLUSPLUS: "++">
+}
+
+
+/*****************************************
+ * SimpleJava Language Grammar Starts Here
+ *****************************************/
+void program():
+{}
+{
+//	 IncrementStatement()<EOF> 
+	(ClassDefinitions()| FunctionDeclaration())* <EOF>
+}
+void ClassDefinitions(): 
+{}
+{
+	<CLASS> <IDENTIFIER> <LBRACE> (VariableDeclarationStatement())* <RBRACE> 
+}
+
+/*Two kinds of Function Declarations: FunctionProtoype or FunctionDefinition. */
+void FunctionDeclaration():
+{}
+{
+	FunctionType() <IDENTIFIER> FormalParameterList() (";"| <LBRACE> StatementList()<RBRACE> ) 
+
+}
+void FunctionType():
+{}
+{
+	<VOID>|<BOOLEAN>|<IDENTIFIER>
+}
+
+void VariableType():
+{}
+{
+	<BOOLEAN> | <IDENTIFIER>
+}
+	
+// 5th Expression
+void NewExpression():
+{}
+{
+	LOOKAHEAD(3)<NEW> VariableType()<LPAREN><RPAREN>
+|	<NEW> VariableType()<LBRACKET>Variable()<RBRACKET>(<LBRACKET><RBRACKET>)*
+}
+
+void FormalParameterList():
+{}
+{	
+	<LPAREN> (FormalParameter() (<COMMA> FormalParameter())*)?  <RPAREN> 
+}
+void FormalParameter():
+{}
+{
+	VariableType() Variable() (<LBRACKET><RBRACKET>)*
+}
+void ExpressionList():
+//TODO make sure print(int value)
+{}
+{
+	Expression()(<COMMA> Expression())*
+}
+/* four VariableTypes of expression. */
+void Expression():
+{}
+{
+	LOOKAHEAD(3)FunctionCall()|LOOKAHEAD(2) CompleteOperatorExpression() |LOOKAHEAD(2) Variable()| ConstantExpression()| NewExpression()
+
+}
+// First Expression.
+void ConstantExpression():
+{}
+{
+	<INTEGER_LITERAL>|<TRUE>|<FALSE>
+}
+// Three kinds of variables. 
+void Variable(): 
+{}
+{
+	 LOOKAHEAD(2) ArrayVariable()| PrimitiveVariableTypeOrClassVariable()
+}
+//TODO: Make sure the variable in [] is integer value. 
+void ArrayVariable():
+{}
+{
+	<IDENTIFIER><LBRACKET>(Variable())?<RBRACKET> 
+}
+void PrimitiveVariableTypeOrClassVariable():
+{}
+{
+	LOOKAHEAD(2)<IDENTIFIER>(<PERIOD><IDENTIFIER>)*
+| 	<IDENTIFIER>(<PERIOD>ArrayVariable())*
+
+}
+// TODO check this classvariable
+// void ClassVariable():
+// {}
+// {
+// 	<IDENTIFIER>
+// }
+
+// Three built-in function: readfunction,printfunction and printlnfunction.
+void ReadFunctionCall():
+{}
+{
+	<READ><LPAREN><RPAREN>
+}
+//TODO make sure print(int value)
+void PrintFunctionCall():
+{}
+{
+	<PRINT><LPAREN>(<INTEGER_LITERAL>| <IDENTIFIER>)<RPAREN>
+}
+void PrintlnFunctionCall():
+{}
+{
+	<PRINTLN><LPAREN><RPAREN>
+}
+void CustomizedFunctionCall():
+{}
+{
+	<IDENTIFIER><LPAREN>(ExpressionList())?<RPAREN>
+}
+	
+//Three built-in function and a customized function.
+void FunctionCall():
+{}
+{
+	ReadFunctionCall()
+|	PrintFunctionCall()
+|	PrintlnFunctionCall()
+|	CustomizedFunctionCall()
+}
+//4th Expression
+
+
+
+//The OperatorExpression
+void CompleteOperatorExpression():
+{}
+{
+	AndExpression() (<OR> AndExpression())*
+}
+void AndExpression():
+{}
+{
+	NotExpression() (<AND> NotExpression())*
+
+}
+
+void NotExpression():
+{}
+{
+	(<NOT>)? CompareExpression() 
+}
+
+void CompareExpression():
+{}
+{
+	<TRUE>
+|   <FALSE>
+|	MathExpression() ((<EQUALEQUAL>|<NOTEQUALTO>|<LESSTHAN>|<LESSTHANOREQUALTO>|<GREATERTHAN>|<GREATERTHANOREQUALTO>) MathExpression())*
+}
+
+void MathExpression():
+{}
+{
+   term() ((<PLUS> | <MINUS>)  term())* 
+}
+
+void term():
+{}
+{
+  factor() ( (<MULTIPLY> |  <DIVIDE>)  factor() )*
+}
+
+void factor():
+{}
+{
+    <MINUS> factor() 
+|   <INTEGER_LITERAL> 
+|	LOOKAHEAD(2)Variable()
+|   <LPAREN>  Expression() <RPAREN> 
+|	FunctionCall()
+//|	<IDENTIFIER> <LPAREN>(Expression()(<COMMA>Expression())*)? <RPAREN> //FunctionCall  
+}
+
+// zero or more statements.
+void StatementList():
+{}
+{
+	(Statement())*
+}
+
+// 11 kinds of statement
+void Statement():
+{}
+{ 
+	LOOKAHEAD(3) AssignmentStatement()
+|	LOOKAHEAD(3) IncrementStatement()
+|	LOOKAHEAD(3) VariableDeclarationStatement()
+|   LOOKAHEAD(3) IfStatement()
+|	LOOKAHEAD(3) DanglingIfElseStatement()
+|	WhileStatement()
+|	DoWhileStatement()
+|	ForStatement()
+|   FunctionCallStatement()
+|	ReturnStatement()
+|	EmptyStatement()
+|	BlockStatement()
+}
+
+void AssignmentStatement():
+{}
+{
+	Variable() <GETS> Expression()<SEMICOLON>
+}	
+// TODO incrementstatement just like <variable>++ or <variable>-- 
+void IncrementStatement():
+{}
+{
+	LOOKAHEAD(3) Variable()<PLUSPLUS>
+| 	LOOKAHEAD(3) Variable()<MINUS><MINUS>
+}
+void VariableDeclarationStatement():
+{}
+{
+	VariableType() Variable() (<GETS> Expression())? <SEMICOLON>
+}
+
+void IfStatement():
+{}
+{
+	<IF> <LPAREN> Expression() <RPAREN> Statement() (LOOKAHEAD(1) <ELSE> Statement())?
+}
+void DanglingIfElseStatement():
+{}
+{
+	<IF> <LPAREN>Expression()<RPAREN> <LBRACE> <LPAREN> <IF> <LPAREN>Expression()<RPAREN> Statement() <ELSE> Statement() <RBRACE> 
+}
+void WhileStatement():
+{}
+{
+	<WHILE> <LPAREN> Expression() <RPAREN> Statement()
+}
+void DoWhileStatement():
+{}
+{
+	<DO> Statement() <WHILE> <LPAREN> Expression() <RPAREN> <SEMICOLON>
+}
+void ForStatement():
+{}
+{
+	<FOR> <LPAREN>  ForInit() Expression()<SEMICOLON> IncrementStatement() <RPAREN> Statement() 
+}
+// TODO check ForInit can taek incremnet statement. 
+void ForInit():
+{}
+{
+	LOOKAHEAD(3) VariableType() Variable()
+|	AssignmentStatement() 
+|	EmptyStatement()
+} 
+
+void EmptyStatement():
+{}
+{
+	<SEMICOLON>
+}
+
+void FunctionCallStatement():
+{}
+{
+	//<IDENTIFIER> <LPAREN>(Expression()(<COMMA>Expression())*)? <RPAREN> <SEMICOLON>
+	FunctionCall() <SEMICOLON>
+}
+void ReturnStatement():
+{}
+{
+	<RETURN> Expression() <SEMICOLON>
+}
+void BlockStatement():
+{}
+{
+	<LBRACE>StatementList()<RBRACE>
+}
+
+
+

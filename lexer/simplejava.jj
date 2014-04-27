@@ -1,0 +1,77 @@
+options {
+  IGNORE_CASE=false;
+}
+
+PARSER_BEGIN(simplejava)
+
+public class simplejava {
+}
+
+PARSER_END(simplejava)
+
+TOKEN_MGR_DECLS : 
+{
+	public static int numcomments = 0;
+}
+
+SKIP :
+{
+    < "/*" > { numcomments++; SwitchTo(IN_COMMENT);} 
+}
+
+<IN_COMMENT>
+SKIP:
+{
+	< "*/" > { numcomments--; if (numcomments == 0) SwitchTo(DEFAULT);}
+}
+
+<IN_COMMENT>
+SKIP:
+{
+	< ~[] > 
+}
+
+SKIP : /* White space */ 
+{
+  	< "\t" >
+|   < " "  > 
+|   < "\n">
+|   < "\f">
+|   < "\r">
+}
+
+TOKEN : 
+{
+	< CLASS: "class" > 
+|	< DO: "do" >
+|	< ELSE: "else" > 
+|	< FALSE: "false" >
+|	< FOR: "for" >
+|	< IF: "if" >
+|	< TRUE: "true"> 
+|	< WHILE: "while" >
+|	< PLUS: "+" >
+|	< SEMICOLON: ";">
+|   < MINUS: "-" >
+|	< MULTIPLY: "*" >
+|	< SLASH: "/" >
+|	< LPAREN: "(" >
+|	< LBRACE: "{" >
+| 	< RBRACE: "}" >
+|	< LBRACKET: "[" >
+|	< RBRACKET: "]" >
+|   < PERIOD: "." >
+|	< COMMA: "," >
+|	< EQUALEQUAL: "==" >
+|	< EQUAL: "=" >
+|   < NOTEQUALS: "!=" >
+|	< SMALLER: "<" >
+|	< SMALLEREQUAL: "<=" >
+|	< BIGGER: ">" >
+|	< BIGGEREQUAL: ">=" >
+|	< AND: "&&" >
+|   < OR: "||" >
+|	< NON: "!" >
+|   < INTEGER_LITERAL: (["0"-"9"])+ >
+|   < IDENTIFIER: ["A"-"Z","a"-"z"](["a"-"z","A"-"Z","0"-"9"])* >
+}
