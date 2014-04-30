@@ -15,19 +15,67 @@ class CodeGenerator implements AATVisitor {
     public Object VisitCallExpression(AATCallExpression expression) { 
     }
   
+    //This is on textbook.
     public Object VisitMemory(AATMemory expression) { 
+		expression.mem().Accept(this);
+		emit("lw "+ Register.ACC() + ", 0(" + Register.ACC() + ")");
+		return null;
     }
     
     
     public Object VisitOperator(AATOperator expression) { 
+		//textbook 235
+		expression.left。Accept(this);
+		emit("sw "+Register.ACC()+", 0("+Register.ESP()+")");
+		emit("addi "+Register.ESP()+","+Register.ESP()+","+0-MachineDependent.WORDSIZE);
+	    expression.right.Accept(this);
+		emit("lw "+Register.Temp1()+","+MachineDependent.WORDSIZE+"("+Register.ESP()+")");
+		emit("addi "+Register.ESP()+","=Register.ESP()+","+MachineDependent.WORDSIZE);
+		switch (opexpr.operator()) {
+		    case ASTOperatorExpression.PLUS:
+				emit("add"+Register.ACC()+","+Register.Temp1()+","+Register.ACC());
+				break;
+			case ASTOperatorExpression.MINUS:
+				emit("sub"+Register.ACC()+","+Register.Temp1()+","+Register.ACC());
+				break;
+			case ASTOperatorExpression.MULTIPLY:
+				//Register Low = new Register("LO");
+				emit("mult"+Register.ACC()+","+Register.Temp1());
+			    break;
+			case ASTOperatorExpression.DIVIDE:
+			    emit("div"+Register.ACC()+","+Register.Temp1());
+				break;
+			case ASTOperatorExpression.AND:
+				
+			case ASTOperatorExpression.OR:
+			case ASTOperatorExpression.EQUAL:	
+			case ASTOperatorExpression.NOT_EQUAL:
+			case ASTOperatorExpression.LESS_THAN:
+				emit("slt "+Register.ACC()+","+Register.Temp1()+","+Register.ACC());
+				break;
+			case ASTOperatorExpression.LESS_THAN_EQUAL:  //x <= y same as x-1 < y
+				emit("addi "+Register.Temp1()+","+Register.Temp1()+",-1");  //x-1 x(lhs) is put in Temp1()
+				emit("slt "+Register.ACC()+","+Register.Temp1()+","+Register.ACC());
+				break;
+			case ASTOperatorExpression.GREATER_THAN:
+				emit("slt"+Register.ACC()+Register.ACC()+Register.Temp1());  //just opsite to LESS_THAN
+			case ASTOperatorExpression.GREATER_THAN_EQUAL:
+			case ASTOperatorExpression.NOT:
+			
+		
     }
 
+	//Textbook p234 is "$r1"
     public Object VisitRegister(AATRegister expression) { 
+		emit("addi "+Register.ACC()+","+expression.register()+"0");
     }
     
     public Object VisitCallStatement(AATCallStatement statement) {
     }
+
     public Object VisitConditionalJump(AATConditionalJump statement) {
+		statement().test().Accept(this);
+		emit("bgtz "+Register.ACC()+statement.label());  
     }
     
     public Object VisitEmpty(AATEmpty statement) {
@@ -41,6 +89,17 @@ class CodeGenerator implements AATVisitor {
 	return null;
     }
     public Object VisitMove(AATMove statement) {
+		if(statement.lhs() instanceof AATRegister) {
+			statement.rhs().Accept(this);
+			emit("addi "+((AATRegister)statement.lhs()).register() + ","+Register.ACC() + ",0");
+		} else {
+			((AATMemory) statement.lhs()).mem().Accept(this);
+			emit("sw "+Register.ACC()+","+"0("+Register.ESP()+")");
+			emit("addi "+Register.ESP()+","+Register.ESP()+", "+(0-MachineDependent.WORDSIZE));
+			statement.rhs().Accept(this);
+			emit("lw "+Register.Tmp1()+","+MachineDependent.WORDSIZE+"("+Register.ESP()+")");
+			emit("sw"+Register.ACC()+", 0("+Register.Tmp1()+")");
+		}
     }
     public Object VisitReturn(AATReturn statement) {
 	emit("jr " + Register.ReturnAddr());
@@ -56,6 +115,8 @@ class CodeGenerator implements AATVisitor {
     }
     
     public Object VisitConstant(AATConstant expression) {
+		emit("addi "+Register.ACC()+","+Register.Zero()+","+expression.value());
+		return null;
     }
     
     private void emit(String assem) {
