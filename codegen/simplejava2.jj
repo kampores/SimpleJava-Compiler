@@ -1,0 +1,629 @@
+options {
+  JAVA_UNICODE_ESCAPE = true;
+  IGNORE_CASE=false;
+  DEBUG_PARSER=true;
+}
+
+PARSER_BEGIN(simplejava)
+
+public class simplejava {
+}
+
+PARSER_END(simplejava)
+
+TOKEN_MGR_DECLS : 
+{
+	public static int numcomments = 0;
+}
+
+SKIP :
+{
+    < "/*" > { numcomments++; SwitchTo(IN_COMMENT);} 
+}
+
+<IN_COMMENT>
+SKIP:
+{
+	< "*/" > { numcomments--; if (numcomments == 0) SwitchTo(DEFAULT);}
+}
+
+<IN_COMMENT>
+SKIP:
+{
+	< ~[] > 
+}
+
+SKIP : /* White space */ 
+{
+  	 "\t" 
+|    " "   
+|    "\n"
+|    "\f"
+|    "\r"
+}
+
+TOKEN: /* Single line comment */
+{
+	<SINGLELINECOMMENT: "//" (~["\n","\r"])* ("\n"|"\r"|"\r\n")>
+}
+
+TOKEN: /* RESERVED WORDS AND LITERALS */
+{
+	< FOR: "for" >
+|   < UNDERLINE: "_" >
+|	< IF: "if" >
+|	< WHILE: "while" >
+|	< DO: "do">
+|	< ELSE: "else" >
+|	< CLASS: "class" >
+|	< BOOLEAN: "boolean"> 
+|	< INT: "int">
+|   < TRUE: "true" >
+|	< FALSE: "false" >
+| 	< RETURN: "return" >
+|	< NEW: "new" >
+|	< READ: "read" >
+|	< PRINT: "print" >
+|	< PRINTLN: "println" >
+|	< VOID: "void" > 
+}
+TOKEN : /* Integer Literals */
+{
+	< INTEGER_LITERAL: (["0"-"9"])+ >
+}
+
+TOKEN: /* Identifiers */
+{  
+	<IDENTIFIER:  (["a"-"z","A"-"Z","_"])(["a"-"z","A"-"Z","0"-"9"])* > 
+}
+
+TOKEN: /* Symbol */
+{
+	< PLUS: "+" >
+|	< SEMICOLON: ";">
+|   < MINUS: "-" >
+|	< MULTIPLY: "*" >
+|	< DIVIDE: "/" > 
+|	< LPAREN: "(" >
+|	< RPAREN: ")" >
+|	< LBRACE: "{" >
+| 	< RBRACE: "}" >
+|	< LBRACKET: "[" >
+|	< RBRACKET: "]" >
+|   < PERIOD: "." >
+|	< COMMA: "," >
+|	< EQUALEQUAL: "==" >
+|	< GETS: "=" >
+|   < NOTEQUALTO: "!=" >
+|	< NOT: "!" > 
+|	< LESSTHAN: "<" >
+|	< LESSTHANOREQUALTO: "<=" >
+|	< GREATERTHAN: ">" >
+|	< GREATERTHANOREQUALTO: ">=" >
+|	< AND: "&&" >
+|   < OR: "||" >
+}
+
+
+/*****************************************
+ * SimpleJava Language Grammar Starts Here
+ *****************************************/
+ASTProgram program():
+{ASTProgram result; ASTFunctionDefinitions fds;ASTFunctionDefinition fd; ASTClass astclass;ASTClasses classes;}
+{
+//	(ClassDefinition()| FunctionDeclaration())* <EOF>
+
+	{classes = new ASTClasses();fds = new ASTFunctionDefinitions();}(astclass=ClassDefinition(){classes.addElement(astclass);}
+ |	fd = FunctionDeclaration(){fds.addElement(fd);})* <EOF>
+	{result = new ASTProgram(classes, fds, fd.line);}
+	{return result;}
+}
+ASTClass ClassDefinition(): 
+{ASTClass result; Token t;String name; ASTInstanceVariableDefs variabledefs; ASTVariableDefinitionStatement vd;}
+{
+	// <CLASS> <IDENTIFIER> <LBRACE> (VariableDeclarationStatement())* <RBRACE> 
+	{ variabledefs = new ASTInstanceVariableDefs(); }
+	t =  <CLASS> name = <IDENTIFIER> <LBRACE> (vd = VariableDeclarationStatement() {variabledefs.addElement(new ASTInstanceVariableDef(vd.type(), vd.name(), vd.arraydimension(), vd.line()));})* <RBRACE> 	
+	{result = new ASTClass(name.image, variabledefs, t.beginLine);}
+	{return result;}
+}
+
+/*Two kinds of Function Declarations: FunctionProtoype or FunctionDefinition. */
+ASTFunctionDefinition FunctionDeclaration():
+{ASTFunctionDefinition result; }
+{
+	//FunctionType() <IDENTIFIER> FormalParameterList() (";"| <LBRACE> StatementList()<RBRACE> ) 
+	result = FunctionPrototype()
+|	result = FunctionDefinition()
+	{return result;}
+}
+
+ASTPrototype FunctionPrototype():
+{ASTPrototype result; String type; String name; ASTFormals formals; Token t;}
+{	
+	type = FunctionType() name = <IDENTIFIER> formals = FormalParameterList() t = <SEMICOLON>
+	{result = new ASTPrototype(type, name.image, formals, t.beginLine);}
+	{return result;}
+}
+ASTFunction FunctionDefinition():
+{ASTFunction result; String type; String name; ASTFormals formals; ASTStatement body; Token t;}
+{
+	type = FunctionType() name = <IDENTIFIER> formals = FormalParameterList() <LBRACE> body = StatementList() <RBRACE>
+	{result = new ASTFunction(type, name.image, formals, body, name.line);}
+	{return result;}
+}
+ASTFunctionDefinitions FunctionDefinitions():
+{ASTFunctionDefinitions result; ASTFunctionDefinition functionDefinition;}
+{
+	{result = new ASTFunctionDefinitions();}
+	(functionDefinition = FunctionDefinition() { result.addElement(functionDefinition);})*
+	{return result;}
+}
+String FunctionType():
+{Token t;}
+{
+	<VOID>{return "void";}
+|	<BOOLEAN> {return "boolean";}
+|	t = <IDENTIFIER> {return t.image;}
+}
+
+String VariableType():
+{Token t;}
+{
+	<BOOLEAN> { return "boolean";}	
+	| <INT> { return "int";}
+	| t = <IDENTIFIER> {return t.image;}
+}
+	
+// 5th Expression
+/*void NewExpression():
+{}
+{
+	LOOKAHEAD(3)<NEW> VariableType()<LPAREN><RPAREN>
+|	<NEW> VariableType()<LBRACKET>Variable()<RBRACKET>(<LBRACKET><RBRACKET>)*
+}*/
+
+ASTNewClassExpression NewClassExpression():
+{ASTClassExpression result; String type; Token t; }
+{
+	t = <NEW> type = VariableType() <LPAREN> <RPAREN>
+	{result = new ASTClassExpression(type, t.beginLine);}
+	{return result;}
+}
+	
+ASTNewArrayExpression NewArrayExpression():
+{ASTNewArrayExpression result; Token t; String type; ASTExpression elements;int arraydimension;}
+{
+	{arraydimension=0;} t=<NEW> type = VariableType() <LBRACKET> elements = integerConstant() <RBRACKET> (<LBRACKET><RBRACKET> {arraydimension++;} )* 
+	{result = new ASTNewArrayExpression(type, elements, arraydimension, t.beginLine);}
+{return result;}
+}
+ASTFormals FormalParameterList():
+{ASTFormals result; ASTFormal formal;}
+{	
+//	<LPAREN> (FormalParameter() (<COMMA> FormalParameter())*)?  <RPAREN> 
+	{result =new ASTFormals();} 
+	
+	<LPAREN> (formal = FormalParameter() {result.addElement(formal);}(<COMMA> formal = FormalParameter() {result.addElement(formal);})*)? <RPAREN>
+	{return result;}
+
+
+//	{result = new ASTStatements();}
+//	(statement = Statement() {result.addElement(statement);})*
+//	{return result;i}
+}
+ASTFormal FormalParameter():
+{String type; String name;ASTFormal result;int arraydimension; }
+{
+	{arraydimension=0;} type = VariableType() name = <IDENTIFIER> (<LBRACKET><RBRACKET> {arraydimension++;})*
+	{result = new ASTFormal(type, name, arraydimension, type.line);}
+	{return result;}
+}
+/* four VariableTypes of expression. */
+ASTExpression Expression():
+{ASTExpression result; }
+{
+//	LOOKAHEAD(3) FunctionCall()|LOOKAHEAD(2) OrOperatorExpression() |LOOKAHEAD(2) Variable()| ConstantExpression()| NewExpression()
+	LOOKAHEAD(3) result = FunctionCall()|LOOKAHEAD(2) result = OrOperatorExpression() |LOOKAHEAD(2) result = Variable()| result = booleanConstant()|result = integerConstant()|result = NewClassExpression() | result = NewArrayExpression()
+	{return result;}
+}
+// Two kinds of constant expression: boolean or integer.
+ASTBooleanLiteral booleanConstant():
+{ASTBooleanLiteral result; Token t;}
+{
+	(t = <TRUE>| t = <FALSE>)
+	{result = new ASTBooleanLiteral(Boolean.valueOf(t.image), t.beginLine);}
+	// if(t.kind == TRUE)
+	// if(t.image == "true")
+	//		result = new ASTBooleanLiteral(true, t.beginLine);
+	//else
+	//		result = new ASTBooleanLiteral(false, t.beginLine);
+ 	{return result;}
+}
+
+ASTIntegerLiteral integerConstant():
+{ ASTIntegerLiteral result; Token t;}
+{
+	t = <INTEGER_LITERAL>
+	{result = new ASTIntegerLiteral(t.image, t.beginLine);}
+	{return result;}
+}
+
+// First Expression.
+/*void ConstantExpression():
+{}
+{
+	<INTEGER_LITERAL>|<TRUE>|<FALSE>
+}
+*/
+// Three kinds of variables: BaseVariable, ClassVariable, ArrayVariable.
+//B = id; C=V.id; A=V[exp]; V =A|B|C; So:
+// V = id([exp] | (.id))*, V is ArrayVariable if ended with [exp], V is ClassVariable if ended with (.id);So I added base() to be id([exp]|(.id))*.
+ASTVariable Variable(): 
+{ASTVariable result; ASTVariable tmp; ASTExpression exp;Token t;}
+{
+	tmp = baseVariable() {result = tmp;} (<LBRACKET> exp = Expression() <RBRACKET> {tmp = new ASTArrayVariable(tmp, exp, tmp.line());} | <PERIOD> t = <IDENTIFIER> {tmp = new ASTClassVariable(tmp, t.image, tmp.line());})* (<LBRACKET> exp = Expression() <RBRACKET> {result = new ASTArrayVariable(tmp, exp, tmp.line());} | <PERIOD> t = <IDENTIFIER> {result = new ASTClassVariable(tmp, t.image, tmp.line());})?
+	{return result;}
+	//result = baseVariable() | result = arrayVariable()| result = classVariable() 
+	//{return result;}
+	 // LOOKAHEAD(2) ArrayVariable()| PrimitiveVariableTypeOrClassVariable()
+}
+ASTBaseVariable baseVariable():
+{ASTBaseVariable result ; Token t;}
+{
+	t = <IDENTIFIER> 
+	{result = new ASTBaseVariable(t.image, t.beginLine);}
+	{return result;}
+}
+ASTVariable base():
+{ASTVariable result; ASTExpression exp; Token t;}
+{	
+	t=<IDENTIFIER>(exp = Expression()| (<PERIOD><IDENTIFIER>))*
+	{result = new ASTVariable();}
+	{return result;}
+}	
+ASTArrayVariable arrayVariable():
+{ASTArrayVariable result; ASTVariable base; ASTExpression index;}
+{
+	base = Variable() <LBRACKET> index = Expression() <RBRACKET>
+	{result = new ASTArrayVariable(base,index,base.line());}
+ 	{return result;}
+//	<IDENTIFIER><LBRACKET>(Variable())?<RBRACKET> 
+}
+ASTClassVariable classVariable():
+{ASTClassVariable result; ASTVariable base; Token t; }
+{
+	base = Variable()(<PERIOD> t=<IDENTIFIER>)*
+	{result = new ASTClassVariable(base,t.image,t.beginLine);}
+	{return result;}
+/*	LOOKAHEAD(2)<IDENTIFIER>(<PERIOD><IDENTIFIER>)*
+| 	<IDENTIFIER>(<PERIOD>ArrayVariable())*
+*/
+}
+
+// Three built-in function: readfunction,printfunction and printlnfunction.
+ASTFunctionCallExpression ReadFunctionCall():
+{ASTFunctionCallEXpression result; Token t;}
+{
+	//<READ><LPAREN><RPAREN>
+	t = <READ><LPAREN><RPAREN>
+	{result = new ASTFunctionCallExpression(t.image, t.beginLine);}
+	{return result;}
+}
+//TODO make sure print(int value)
+ASTFunctionCallExpression PrintFunctionCall():
+{Token t; ASTExpression form;}
+{
+//	<PRINT><LPAREN>(<INTEGER_LITERAL>| <IDENTIFIER>)<RPAREN>
+	t=<PRINT><LPAREN>( form = <INTEGER_LITERAL>| form  = <IDENTIFIER>)<RPAREN>
+	{result = new ASTFunctionCallExpression(t.image, form. t.beginLine);}
+	{return result;}
+
+}
+ASTFunctionCallExpression PrintlnFunctionCall():
+{ASTFunctionCallExpression result; Token t;}
+{
+	t = <PRINTLN><LPAREN><RPAREN>
+	{result = new ASTFunctionCallExpression(t.image, t.beginLine);}
+	{return result;}
+}
+ASTFunctionCallExpression CustomizedFunctionCall():
+{ASTFunctionCallExpression result; Token t; ASTExpression formal;}
+{
+	t = <IDENTIFIER><LPAREN>(formal = Expression())* <RPAREN>
+	{result = new ASTFunctionCallExpression(t.image, t.beginLine);}
+	{return result;}
+}
+	
+//Three built-in function and a customized function.
+ASTFunctionCallExpression FunctionCall():
+{ASTFunctionCallExpression result; }
+{
+/*	ReadFunctionCall()
+|	PrintFunctionCall()
+|	PrintlnFunctionCall()
+|	CustomizedFunctionCall() */
+
+	result= ReadFunctionCall()
+|	result = PrintFunctionCall()
+|	result = PrintlnFunctionCall()
+|	result = CustomizedFunctionCall()
+	{return result;}
+}
+//The OperatorExpression
+ASTOperatorExpression OrOperatorExpression():
+{ASTOperatorExpression result; ASTOperatorExpression andExp; Token t;}
+{
+	andExp = AndExpression() t = <OR> andExp = AndExpression() 
+	{result = new ASTOperatorExpression(andExp,andExp,6,t.beginLine);}
+	{return result;}
+}
+
+ASTOperatorExpression AndExpression():
+{ASTOperatorExpression result; Token t; ASTOperatorExpression rhs;}
+{
+	result = NotExpression() ( t = <AND> rhs =  NotExpression() 
+		{result = new ASTOperatorExpression(result, notExp, t.image, t.image.beginLine);})*
+	{return result;}
+}
+
+ASTUnaryOperatorExpression NotExpression():
+{ASTUnaryOperatorExpression result; ASTExpression operand; Token t;}
+//	(<NOT>)? CompareExpression() 
+{
+	t = <NOT> operand = CompareExpression()
+	{result = new ASTUnaryOperatorExpression(operand,t.image, t.image.beginLine);}
+	{return result;}
+}
+
+ASTOperatorExpression CompareExpression():
+{ASTOperatorExpression result; ASTOperatorExpression rhs; Token t;}
+{
+	result = MathExpression() ((t= <EQUALEQUAL>|t = <NOTEQUALTO>|t = <LESSTHAN>|t = <LESSTHANOREQUALTO>|t = <GREATERTHAN>|t = <GREATERTHANOREQUALTO>) rhs = MathExpression() {result = new ASTOperatorExpression(result,rhs,t.image,t.image.beginLine);})*
+	{return result;}
+}
+
+/*	<TRUE>
+|   <FALSE>
+|	MathExpression() ((<EQUALEQUAL>|<NOTEQUALTO>|<LESSTHAN>|<LESSTHANOREQUALTO>|<GREATERTHAN>|<GREATERTHANOREQUALTO>) MathExpression())*
+*/
+
+ASTOperatorExpression MathExpression():
+{ASTOperatorExpression result; Token t; ASTExpression lhs; ASTExpression rhs;}
+{
+//  factor() ( (<MULTIPLY> |  <DIVIDE>)  factor() )*
+	result = factor() ((t = <MULTIPLY> | t = <DIVIDE> ) rhs = factor() 
+		{ result = new ASTOperatorExpression(result, rhs, t.image, t.image.beginLine); })*
+	{return result;}
+}
+
+	
+/*lhs = term() (t=<PLUS>| t=<MINUS> rhs = term() 
+		{if (t.kind == PLUS)
+			result = new ASTOperatorExpression(lhs, rhs, 1,line );
+		else if(t.kind == MINUS)
+			result = new ASTOperatorExpression(lhs, rhs, 2, line);
+		}
+			)*
+	{return result;} */
+
+ //  term() ((<PLUS> | <MINUS>)  term())* 
+
+ASTExpression term():
+{Token t; ASTExpression result; ASTExpression rhs;}
+{
+//  factor() ( (<MULTIPLY> |  <DIVIDE>)  factor() )*
+	result = factor() ((t = <MULTIPLY> | t = <DIVIDE> ) rhs = factor() 
+		{ result = new ASTOperatorExpression(result, rhs, t.image, t.image.beginLine); })*
+	{return result;}
+}
+
+ASTExpression factor():
+{ASTExpression value; Token t; ASTVariableExpression variableExp;}
+{
+	t = <INTEGER_LITERAL> {return new ASTIntegerLiteral(Integer.parseInt(t.image), t.beginLine); }
+|   <MINUS> value = factor() {return new ASTOperatorExpression(new ASTIntegerLiteral(0), value, TOperatorExpression.MINUS); }
+|   LOOKAHEAD(2) variableExp = Variable() {return new ASTVariableExpression(variableExp,variableExp.line());}
+|	<LPAREN> value = Expression() <RPAREN> {return value;} 
+|	value = FunctionCall() { return value;}
+}
+
+/*
+    <MINUS> factor() 
+|   <INTEGER_LITERAL> 
+|	LOOKAHEAD(2)Variable()
+|   <LPAREN>  Expression() <RPAREN> 
+|	FunctionCall()
+//|	<IDENTIFIER> <LPAREN>(Expression()(<COMMA>Expression())*)? <RPAREN> //FunctionCall  
+}*/
+
+// zero or more statements.
+ASTStatements StatementList():
+{ASTStatements result; ASTStatment statement;}
+{
+	//(Statement())*
+	{result = new ASTStatements();}
+	(statement = Statement() {result.addElement(statement);})*
+	{return result;}
+}
+
+// 11 kinds of statement
+// Assignment, Increment, Block are ASTStatement; 
+ASTStatements Statement():
+{ ASTStatements result; } 
+/*{ 
+	LOOKAHEAD(3) AssignmentStatement()
+|	LOOKAHEAD(3) IncrementStatement()
+|	LOOKAHEAD(3) VariableDeclarationStatement()
+|   LOOKAHEAD(3) IfStatement()
+|	WhileStatement()
+|	DoWhileStatement()
+|	ForStatement()
+|   FunctionCallStatement()
+|	ReturnStatement()
+|	EmptyStatement()
+|	BlockStatement()
+}*/
+{
+	 LOOKAHEAD(3) result = AssignmentStatement()
+	{return result;}
+|	LOOKAHEAD(3) result = IncrementStatement()
+	{return result;}
+|	 LOOKAHEAD(3) result = VariableDeclarationStatement()
+	{return result;}
+|   LOOKAHEAD(3)  result = IfStatement()
+	{return result;}
+|	result  = WhileStatement()
+	{return result;}
+|	result = DoWhileStatement()
+	{return result;}
+|	result= ForStatement()
+	{return result;}
+|   result = FunctionCallStatement()
+	{return result;}
+|	result = ReturnStatement()
+	{return result;}
+|	result= EmptyStatement()
+	{return result;}
+|	result= BlockStatement()
+	{return result;}
+}
+	
+
+ASTAssignmentStatement AssignmentStatement():
+{ASTAssignmentStatement result; ASTVariable variable; ASTExpression value;Token t;}
+{
+	variable = Variable() t =  <GETS> value = Expression()<SEMICOLON>
+	{result = new ASTAssignmentStatement(variable,value,t.getLine());}
+	{return result;}
+}	
+// Incrementstatement just like <variable>++ or <variable>-- : x++  converted to x=x+1
+ASTAssignmentStatement IncrementStatement():
+{ASTAssignmentStatement result; ASTVariable variable; Token t; ASTExpression value; 
+ASTIntegerLiteral one;}
+{
+	LOOKAHEAD(3) variable = Variable() t = <PLUS><PLUS>
+|   LOOKAHEAD(3) variable = Variable() t= <MINUS><MINUS>
+	// result = new ASTAssignmentStatement(variable, new ASTOperatorExpression(value,Integer.parseInt(),1,value.line()));
+//  x = x+1 , this is an assignment statement, x is a variable, x+1 is an operatorExpression,
+// 1 is a ASTIntegerLiteral
+
+	{result = new AssignmentStatement(variable, new ASTOperatorExpression(new ASTVariableExpreesion(variable, variable.line()), new ASTIntegerLiteral(1, variable.line()),1,value.line()));}
+|	{result = new AssignmentStatement(variable, new ASTOperatorExpression(new ASTVariableExpreesion(variable, variable.line()), new ASTIntegerLiteral(1, variable.line()),2,value.line()));}
+	{return result;}
+	/*LOOKAHEAD(3) Variable()<PLUS><PLUS>
+|  	LOOKAHEAD(3)Variable()<MINUS><MINUS> */
+}
+ASTVariableDefStatement VariableDeclarationStatement():
+{ASTVariableDefStatement result; Token type; Token name; ASTExpression init; ASTVariable variable; int arrdim;}
+{
+	/* type = (<IDENTIFIER>|<BOOLEAN>) name = <IDENTIFIER> <SEMICOLON> 
+	result = new ASTVariableDefStatement(type.image, name.image, type.beginLine); {return result;}
+|  	type = (<IDENTIFIER>|<BOOLEAN>) name = <IDENTIFIER> <GETS> init=Expression() <SEMICOLON> 
+	result = new ASTVariableDefStatement(type.image, name.image, init, type.beginLine); {return result;}
+//TODO to get the arraydimension: each [] arrdim++;
+|	{arrdim = 0; } type = (<IDENTIFIER>|<BOOLEAN>) name = <IDENTIFIER> (<LPAREN> <RPAREN> {arrdim++;})+ <SEMICOLON>
+	result = new ASTVariableDefStatement(type.image, name.image, arrdim, type.beginLine); {return result;}
+|	{arrdim = 0;} type = (<IDENTIFIER>|<BOOLEAN>) name = <IDENTIFIER> (<LPAREN> <RPAREN> {arrdim++;})+ <GETS> init=Expression() <SEMICOLON>
+	result = new ASTVariableDefStatement(type.image, name.image, arrdim, init, type.beginLine); {return result;} */
+
+	{init = null;} LOOKAHEAD(3) (type = <IDENTIFIER>| type = <BOOLEAN>) name = <IDENTIFIER> (<GETS> init=Expression())? <SEMICOLON>  
+	{result = new ASTVariableDefStatement(type.image, name.image, init, type.beginLine); return result;}
+|	{init = null; arrdim = 0;} (type = <IDENTIFIER>| type = <BOOLEAN>) name = <IDENTIFIER> (<LPAREN> <RPAREN> {arrdim++;})+ (<GETS> init=Expression())? <SEMICOLON>
+	{result = new ASTVariableDefStatement(type.image, name.image, init, type.beginLine); return result;}
+}
+
+ASTIfStatement IfStatement():
+{Token t; ASTStatement result; ASTExpression expression; ASTStatement statement; ASTStatement statement;}
+{
+	t = <IF> <LPAREN> expression = Expression() <RPAREN> statement = Statement() (LOOKAHEAD(1) <ELSE> statement =  Statement())?
+	{result = new ASTIfStatement( expression, statement, statement, t.beginLine);}
+	{return result;}
+}
+
+//	<WHILE> <LPAREN> Expression() <RPAREN> Statement()
+ASTWhileStatement WhileStatement():
+{Token t; ASTWhileStatement result; ASTExpression test; ASTStatement body;}
+{
+	 t = <WHILE> <LPAREN> test = Expression() <RPAREN> body = Statement()
+
+	 {result =new ASTWhileStatement(test, body, t.beginLine);}
+	 {return result;}
+}
+
+ASTDoWhileStatement DoWhileStatement():
+// do {body} while {test}  =   body; while(test) {body}
+{Token t; ASTStatements result; ASTStatement statement; ASTExpression expression;}
+{
+	t = <DO> body = Statement() <WHILE> <LPAREN> test = Expression() <RPAREN> <SEMICOLON>
+	{result = new ASTDoWhileStatements(body, test, t.beginLine);}
+	{return result;}
+//	<DO> Statement() <WHILE> <LPAREN> Expression() <RPAREN> <SEMICOLON>
+}
+ASTForStatement ForStatement():
+{Token t; ASTForStatement result; ASTStatement initialize; ASTExpression test; ASTStatement increment; ASTStatement body;}
+{   
+ //<FOR> <LPAREN>  ForInit() Expression()<SEMICOLON> IncrementStatement() <    RPAREN> Statement()
+	t = <FOR> <LPAREN>  initialize = ForInit() test = Expression()<SEMICOLON> increment = IncrementStatement() <RPAREN> body = Statement() 
+	{result = new ASTForStatement(initialize, test, increment, body, t.beginLine);}
+	{return result;}
+}
+//ForInit: variable declarations, increment statements(which is assignment statement), assignment statements, or empty statements.
+ ASTStatement ForInit():
+{ ASTStatement result; }
+{
+/*	LOOKAHEAD(3) :VariableType() Variable()
+|	AssignmentStatement() 
+|	EmptyStatement() 
+	{variableDef = new ASTInstanceVariableDef(type, name, line);}
+	result = new ASTInstanceVariableDef(LOOKAHEAD(3) type = VariableType(); name = Variable(); line)
+|	assignmentStatement = AssignmentStatement() 
+|	EmptyStatement() // TODO how to deal with emptystatement() ?????
+}
+*/
+	result = VariableDeclarationStatement()
+|	result = IncrementStatement()
+|	result = AssignmentStatement()
+|	result = EmptyStatement()
+	{return result;}
+} 
+
+ASTEmptyStatement EmptyStatement():
+{ASTEmptyStatement result; Token t;}
+{
+	t = <SEMICOLON>
+	{result = new ASTEmptyStatement(t.beginLine);}
+	{return result;}
+}
+
+//ASTFormal: {arraydimension=0;} type = VariableType() name = <IDENTIFIER> (<LBRACKET><RBRACKET> {arraydimension++;})*
+/*{result =new ASTFormals();} 
+	
+	<LPAREN> (formal = FormalParameter() {result.addElement(formal);}(<COMMA> formal = FormalParameter() {result.addElement(formal);})*)? <RPAREN>
+	{return result;}
+*/
+ASTFunctionCallStatement FunctionCallStatement():
+{ASTFunctionCallStatement result; Token t; ASTExpression formal;}
+{
+	//<IDENTIFIER> <LPAREN>(Expression()(<COMMA>Expression())*)? <RPAREN> <SEMICOLON>
+	{result = new ASTFunctionCallStatement(t.image, t.beginLine);}
+	t=<IDENTIFIER> <LPAREN> (formal = Expression() {result.addElement(formal);})? <RPAREN> <SEMICOLON>
+	{return result;}
+}
+ASTReturnStatement ReturnStatement():
+{ASTReturnStatement result; ASTExpression value;Token t;}
+{
+//	<RETURN> Expression() <SEMICOLON>
+	t = <RETURN> value = Expression() t = <SEMICOLON>
+	{result = new ASTReturnStatement(value, t.beginLine);}
+	{return result;}
+}
+ASTStatements BlockStatement():
+{ASTStatements result;}
+{
+	<LBRACE> result = StatementList()<RBRACE>
+	{return result;}
+}
+
+
+
