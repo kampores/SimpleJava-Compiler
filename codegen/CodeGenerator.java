@@ -13,6 +13,16 @@ class CodeGenerator implements AATVisitor {
     }
   
     public Object VisitCallExpression(AATCallExpression expression) { 
+		// Textbook p236
+		int n = expression.actuals.size();
+		for(int i=n;i>0;i--) {
+			emit("sw "+Register.ACC()+","+"-"+(MachineDependent.WORDSIZE*i-MachineDependent.WORDSIZE)+"("+Register.SP()+")");
+		}
+		emit("addi "+Register.SP()+","+Register.SP()+","+"-"+MachineDependent.WORDSIZE*n);
+		emit("jal "+expression.label().toString());
+		emit("addi "+Register.SP()+","+Register.SP()+","+MachineDependent.WORDSIZE*n);
+		emit("addi "+Register.ACC()+","+Register.Result()+","+Register.Zero());
+		
     }
   
     //This is on textbook.
@@ -25,12 +35,12 @@ class CodeGenerator implements AATVisitor {
     
     public Object VisitOperator(AATOperator expression) { 
 		//textbook 235
-		expression.left。Accept(this);
+		expression.left.Accept(this);
 		emit("sw "+Register.ACC()+", 0("+Register.ESP()+")");
 		emit("addi "+Register.ESP()+","+Register.ESP()+","+0-MachineDependent.WORDSIZE);
 	    expression.right.Accept(this);
 		emit("lw "+Register.Temp1()+","+MachineDependent.WORDSIZE+"("+Register.ESP()+")");
-		emit("addi "+Register.ESP()+","=Register.ESP()+","+MachineDependent.WORDSIZE);
+		emit("addi "+Register.ESP()+","+Register.ESP()+","+MachineDependent.WORDSIZE);
 		switch (opexpr.operator()) {
 		    case ASTOperatorExpression.PLUS:
 				emit("add"+Register.ACC()+","+Register.Temp1()+","+Register.ACC());
@@ -45,11 +55,35 @@ class CodeGenerator implements AATVisitor {
 			case ASTOperatorExpression.DIVIDE:
 			    emit("div"+Register.ACC()+","+Register.Temp1());
 				break;
-			case ASTOperatorExpression.AND:
-				
 			case ASTOperatorExpression.OR:
-			case ASTOperatorExpression.EQUAL:	
+				emit("add "+Register.ACC()+","+Register.Temp1()+","+Register.ACC());
+				emit("slt "+Register.ACC()+",0"+","+Register.ACC());  //if 0 < x+y, than return 1,else return 0
+				break;
+			case ASTOperatorExpression.AND:
+				emit("add "+Register.ACC()+","+Register.Temp1()+","+Register.ACC());
+				emit("slt "+Register.ACC()+",1"+","+Register.ACC());    //if 1 < x+y, than return 1, else return 0.
+				break;
+			case ASTOperatorExpression.EQUAL:
+				Label truelab = new Label("truelab");
+				Label endlab = new Label("endlab");
+				emit("beq "+Register.ACC()+","+Register.Temp1()+","+ truelab.toString());
+				emit("addi "+Register.ACC()+","+Register.ACC()+",0");  //truelab 
+				emit("j "+endlab.toString());   //endLab
+				emit(truelab.toString()+ ":");
+				emit("addi "+Register.ACC()+","+Register.ACC()+",1");
+				emit(endlab.toString()+":");
+				break;
 			case ASTOperatorExpression.NOT_EQUAL:
+			//bne rs, rt, <target>
+				Label notture = new Label("nottrue");
+				Label endlab = new Label("endlab");
+				emit("bne "+Register.ACC()+","+Register.Temp1()+","+notequal.toString());
+				emit("addi "+Register.ACC()+","+Register.ACC()+",1");
+				emit("j "+endlab.toString());   
+				emit(nottrue.toString()+ ":");
+				emit("addi "+Register.ACC()+","+Register.ACC()+",0");
+				emit(endlab.toString()+":");
+				break;
 			case ASTOperatorExpression.LESS_THAN:
 				emit("slt "+Register.ACC()+","+Register.Temp1()+","+Register.ACC());
 				break;
@@ -59,33 +93,58 @@ class CodeGenerator implements AATVisitor {
 				break;
 			case ASTOperatorExpression.GREATER_THAN:
 				emit("slt"+Register.ACC()+Register.ACC()+Register.Temp1());  //just opsite to LESS_THAN
-			case ASTOperatorExpression.GREATER_THAN_EQUAL:
-			case ASTOperatorExpression.NOT:
-			
-		
+			case ASTOperatorExpression.GREATER_THAN_EQUAL: //x >= y same as x > y-1
+				emit("addi "+Register.Temp1()+","+Register.Temp1()+",-1");  //x(lhs) is put in Temp1()
+				emit("slt "+Register.ACC()+","+Register.ACC()+","+Register.Temp1());   //just opposite to LESS_THAN_EQUAL
+				break;
+			case ASTOperatorExpression.NOT:   //implement not x as (1-x)
+				emit("sub"+Register.ACC()+","+"1"+","+Register.ACC());
+				break;
     }
 
 	//Textbook p234 is "$r1"
     public Object VisitRegister(AATRegister expression) { 
 		emit("addi "+Register.ACC()+","+expression.register()+"0");
     }
-    
+	
+    public Object VisitCallExpression(AATCallExpression expression) { 
+		// Textbook p236
+		int n = expression.actuals.size();
+		for(int i=n;i>0;i--) {
+			emit("sw "+Register.ACC()+","+"-"+(MachineDependent.WORDSIZE*i-MachineDependent.WORDSIZE)+"("+Register.SP()+")");
+		}
+		emit("addi "+Register.SP()+","+Register.SP()+","+"-"+MachineDependent.WORDSIZE*n);
+		emit("jal "+expression.label().toString());
+		emit("addi "+Register.SP()+","+Register.SP()+","+MachineDependent.WORDSIZE*n);
+		emit("addi "+Register.ACC()+","+Register.Result()+","+Register.Zero());
+		
+    }
+	
+	//Textbook p233
     public Object VisitCallStatement(AATCallStatement statement) {
+		int n = statement.actuals.size();
+		for(int i=n;i>0;i--) {
+			emit("sw "+Register.ACC()+","+"-"+(MachineDependent.WORDSIZE*i-MachineDependent.WORDSIZE)+"("+Register.SP()+")");
+		}
+		emit("addi "+Register.SP()+","+Register.SP()+","+"-"+MachineDependent.WORDSIZE*n);
+		emit("jal "+expression.label().toString());
+		emit("addi "+Register.SP()+","+Register.SP()+","+MachineDependent.WORDSIZE*n);
     }
 
     public Object VisitConditionalJump(AATConditionalJump statement) {
 		statement().test().Accept(this);
-		emit("bgtz "+Register.ACC()+statement.label());  
+		emit("bgtz "+Register.ACC()+statement.label().toString());  
     }
     
     public Object VisitEmpty(AATEmpty statement) {
+		return null;
     }
     public Object VisitJump(AATJump statement) {
-	emit("j " + statement.label());
+	emit("j " + statement.label().toString());
 	return null;
     }
     public Object VisitLabel(AATLabel statement) {
-	emit(statement.label() + ":");
+	emit(statement.label().toString() + ":");
 	return null;
     }
     public Object VisitMove(AATMove statement) {
@@ -111,7 +170,10 @@ class CodeGenerator implements AATVisitor {
 	   this as it is, if you like */
 	return null;
     }
+	
     public Object VisitSequential(AATSequential statement) {
+		statement.left().Accept(this);
+		statement.right().Accept(this);
     }
     
     public Object VisitConstant(AATConstant expression) {

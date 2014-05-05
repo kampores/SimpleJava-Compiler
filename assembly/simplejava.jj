@@ -329,8 +329,8 @@ ASTFunctionCallExpression PrintlnFunctionCall():
 ASTFunctionCallExpression CustomizedFunctionCall():
 {ASTFunctionCallExpression result; Token t; ASTExpression formal;}
 {
-	t = <IDENTIFIER><LPAREN>(formal = OrOperatorExpression())* <RPAREN>
-	{result = new ASTFunctionCallExpression(t.image, t.beginLine);}
+//	t = <IDENTIFIER><LPAREN>(formal = OrOperatorExpression())* <RPAREN>
+	t = <IDENTIFIER> <LPAREN> {result = new ASTFunctionCallExpression(t.image, t.beginLine);} (formal = OrOperatorExpression() {result.addElement(formal);} (<COMMA> formal = OrOperatorExpression() {result.addElement(formal);} )*)* <RPAREN>
 	{return result;}
 }
 	
@@ -401,9 +401,9 @@ ASTExpression factor():
 {
 	t = <INTEGER_LITERAL> {return new ASTIntegerLiteral(Integer.parseInt(t.image), t.beginLine); }
 |  t= <MINUS> result = factor() {return new ASTOperatorExpression(new ASTIntegerLiteral(0, t.beginLine), result, ASTOperatorExpression.MINUS,t.beginLine); }
+|	LOOKAHEAD(2)result = FunctionCall() { return result;}
 |   LOOKAHEAD(2) variableExp = Variable() {return new ASTVariableExpression(variableExp,variableExp.line());}
 |	<LPAREN> result = OrOperatorExpression() <RPAREN> {return result;}  
-|	result = FunctionCall() { return result;}
 |	LOOKAHEAD(3)result = NewClassExpression() {return result;}
 |	LOOKAHEAD(3)result = NewArrayExpression() {return result;} 
 }
@@ -481,7 +481,7 @@ ASTVariableDefStatement VariableDeclarationStatement():
 ASTIfStatement IfStatement():
 {Token t; ASTIfStatement result; ASTExpression expression; ASTStatement thenstatement;ASTStatement elseStatement;}
 {
-	t = <IF> <LPAREN> expression = OrOperatorExpression() <RPAREN> thenstatement = Statement()  (<ELSE> elseStatement =  Statement())
+	t = <IF> <LPAREN> expression = OrOperatorExpression() <RPAREN> thenstatement = Statement() { elseStatement = new ASTEmptyStatement(t.beginLine); }  (<ELSE> elseStatement =  Statement())*
 //t = <if> <lparen> expression =OrOperatorExpression() <rparen> thenstatement = statement() (lookahead(1) <else> elseStatement =  statement())
 	{result = new ASTIfStatement( expression, thenstatement, elseStatement, t.beginLine);}
 	{return result;}

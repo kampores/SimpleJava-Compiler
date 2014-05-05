@@ -165,6 +165,7 @@ public class SemanticAnalyzer implements ASTVisitor {
 			}
 			return types;
 		}
+		}
     
 		public Object VisitFunctionDefinitions(ASTFunctionDefinitions functiondefs) { 
 			for (int i=0; i < functiondefs.size(); i++)
@@ -241,7 +242,7 @@ public class SemanticAnalyzer implements ASTVisitor {
 				}
 				//check the type has been declared
 				String typeName = "";
-				Type type = typeEnv.find(typeName) 
+				Type type = typeEnv.find(typeName);
 				if(type == null ){
 					CompError.message(newarray.line(),"type not declared");
 					return IntegerType.instance();

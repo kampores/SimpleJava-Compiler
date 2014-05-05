@@ -463,7 +463,8 @@ public class SemanticAnalyzer implements ASTVisitor {
 			if(operand.type() != BooleanType.instance()) {
 				CompError.message(operator.line(),"Operand for unary opertion must be boolean");
 			}
-			return new TypeClass(BooleanType.instance(), operand.value());
+			AATExpression returntree = bt.operatorExpression(bt.constantExpression(0), operand.value(), AATOperator.NOT);
+			return new TypeClass(BooleanType.instance(), returntree);
 		}
 		//!<exp>
 		//-<exp>
