@@ -12,19 +12,6 @@ class CodeGenerator implements AATVisitor {
 	EmitSetupCode();
     }
   
-    public Object VisitCallExpression(AATCallExpression expression) { 
-		// Textbook p236
-		int n = expression.actuals.size();
-		for(int i=n;i>0;i--) {
-			emit("sw "+Register.ACC()+","+"-"+(MachineDependent.WORDSIZE*i-MachineDependent.WORDSIZE)+"("+Register.SP()+")");
-		}
-		emit("addi "+Register.SP()+","+Register.SP()+","+"-"+MachineDependent.WORDSIZE*n);
-		emit("jal "+expression.label().toString());
-		emit("addi "+Register.SP()+","+Register.SP()+","+MachineDependent.WORDSIZE*n);
-		emit("addi "+Register.ACC()+","+Register.Result()+","+Register.Zero());
-		
-    }
-  
     //This is on textbook.
     public Object VisitMemory(AATMemory expression) { 
 		expression.mem().Accept(this);
@@ -35,81 +22,88 @@ class CodeGenerator implements AATVisitor {
     
     public Object VisitOperator(AATOperator expression) { 
 		//textbook 235
-		expression.left.Accept(this);
+		expression.left().Accept(this);
 		emit("sw "+Register.ACC()+", 0("+Register.ESP()+")");
-		emit("addi "+Register.ESP()+","+Register.ESP()+","+0-MachineDependent.WORDSIZE);
-	    expression.right.Accept(this);
-		emit("lw "+Register.Temp1()+","+MachineDependent.WORDSIZE+"("+Register.ESP()+")");
+		emit("addi "+Register.ESP()+","+Register.ESP()+","+(0-MachineDependent.WORDSIZE));
+	    expression.right().Accept(this);
+		emit("lw "+Register.Tmp1()+","+MachineDependent.WORDSIZE+"("+Register.ESP()+")");
 		emit("addi "+Register.ESP()+","+Register.ESP()+","+MachineDependent.WORDSIZE);
-		switch (opexpr.operator()) {
-		    case ASTOperatorExpression.PLUS:
-				emit("add"+Register.ACC()+","+Register.Temp1()+","+Register.ACC());
+		switch (expression.operator()) {
+		    case AATOperator.PLUS:
+				emit("add"+Register.ACC()+","+Register.Tmp1()+","+Register.ACC());
 				break;
-			case ASTOperatorExpression.MINUS:
-				emit("sub"+Register.ACC()+","+Register.Temp1()+","+Register.ACC());
+			case AATOperator.MINUS:
+				emit("sub"+Register.ACC()+","+Register.Tmp1()+","+Register.ACC());
 				break;
-			case ASTOperatorExpression.MULTIPLY:
-				//Register Low = new Register("LO");
-				emit("mult"+Register.ACC()+","+Register.Temp1());
+			case AATOperator.MULTIPLY:
+				emit("mult"+Register.ACC()+","+Register.Tmp1());
+				emit("mflo " + Register.ACC());
 			    break;
-			case ASTOperatorExpression.DIVIDE:
-			    emit("div"+Register.ACC()+","+Register.Temp1());
+			case AATOperator.DIVIDE:
+			    emit("div"+Register.Tmp1()+","+Register.ACC());
+				emit("mflo "+ Register.ACC());
 				break;
-			case ASTOperatorExpression.OR:
-				emit("add "+Register.ACC()+","+Register.Temp1()+","+Register.ACC());
+			case AATOperator.OR:
+				emit("add "+Register.ACC()+","+Register.Tmp1()+","+Register.ACC());
 				emit("slt "+Register.ACC()+",0"+","+Register.ACC());  //if 0 < x+y, than return 1,else return 0
 				break;
-			case ASTOperatorExpression.AND:
-				emit("add "+Register.ACC()+","+Register.Temp1()+","+Register.ACC());
+			case AATOperator.AND:
+				emit("add "+Register.ACC()+","+Register.Tmp1()+","+Register.ACC());
 				emit("slt "+Register.ACC()+",1"+","+Register.ACC());    //if 1 < x+y, than return 1, else return 0.
 				break;
-			case ASTOperatorExpression.EQUAL:
-				Label truelab = new Label("truelab");
-				Label endlab = new Label("endlab");
-				emit("beq "+Register.ACC()+","+Register.Temp1()+","+ truelab.toString());
-				emit("addi "+Register.ACC()+","+Register.ACC()+",0");  //truelab 
-				emit("j "+endlab.toString());   //endLab
-				emit(truelab.toString()+ ":");
-				emit("addi "+Register.ACC()+","+Register.ACC()+",1");
-				emit(endlab.toString()+":");
+			case AATOperator.EQUAL:
+				emit("slt "+ Register.Tmp2() + ", " +Register.Tmp1() + ", " + Register.ACC());
+				emit("slt "+ Register.ACC() + ", " + Register.ACC() + ", "+ Register.Tmp1()); 
+				emit("add " + Register.ACC() + ", "+ Register.Tmp2() + ", " + Register.ACC());
+				emit("sub " + Register.ACC() + ", " + Register.Zero() + ", " + Register.ACC());
+				emit("addi "+Register.ACC() + ", "+Register.ACC()+", "+1);
 				break;
-			case ASTOperatorExpression.NOT_EQUAL:
-			//bne rs, rt, <target>
-				Label notture = new Label("nottrue");
+			case AATOperator.NOT_EQUAL:
+				emit("slt " + Register.Tmp2() + ", " + Register.Tmp1() + ", " + Register.ACC());
+	            emit("slt " + Register.ACC() + ", " + Register.ACC() + ", " + Register.Tmp1());
+	            emit("add " + Register.ACC() + ", " + Register.Tmp2() + ", " + Register.ACC());
+	            emit("slt " + Register.ACC() + ", " + Register.Zero() + Register.ACC());
+				break;
+				/*Label notture = new Label("nottrue");
 				Label endlab = new Label("endlab");
-				emit("bne "+Register.ACC()+","+Register.Temp1()+","+notequal.toString());
+				emit("bne "+Register.ACC()+","+Register.Tmp1()+","+notequal.toString());
 				emit("addi "+Register.ACC()+","+Register.ACC()+",1");
 				emit("j "+endlab.toString());   
 				emit(nottrue.toString()+ ":");
 				emit("addi "+Register.ACC()+","+Register.ACC()+",0");
-				emit(endlab.toString()+":");
+				emit(endlab.toString()+":"); */
+				
+			case AATOperator.LESS_THAN:
+				emit("slt "+Register.ACC()+","+Register.Tmp1()+","+Register.ACC());
 				break;
-			case ASTOperatorExpression.LESS_THAN:
-				emit("slt "+Register.ACC()+","+Register.Temp1()+","+Register.ACC());
+			case AATOperator.LESS_THAN_EQUAL:  //x <= y same as x-1 < y
+				emit("addi "+Register.Tmp1()+","+Register.Tmp1()+","+"-1");  //x-1 x(lhs) is put in Tmp1()
+				emit("slt "+Register.ACC()+","+Register.Tmp1()+","+Register.ACC());
 				break;
-			case ASTOperatorExpression.LESS_THAN_EQUAL:  //x <= y same as x-1 < y
-				emit("addi "+Register.Temp1()+","+Register.Temp1()+",-1");  //x-1 x(lhs) is put in Temp1()
-				emit("slt "+Register.ACC()+","+Register.Temp1()+","+Register.ACC());
+			case AATOperator.GREATER_THAN:
+				emit("slt"+Register.ACC()+Register.ACC()+Register.Tmp1());  //just opsite to LESS_THAN
+			case AATOperator.GREATER_THAN_EQUAL: //x >= y same as x > y-1
+				emit("addi "+Register.Tmp1()+","+Register.Tmp1()+","+"-1");  //x(lhs) is put in Tmp1()
+				emit("slt "+Register.ACC()+","+Register.ACC()+","+Register.Tmp1());   //just opposite to LESS_THAN_EQUAL
 				break;
-			case ASTOperatorExpression.GREATER_THAN:
-				emit("slt"+Register.ACC()+Register.ACC()+Register.Temp1());  //just opsite to LESS_THAN
-			case ASTOperatorExpression.GREATER_THAN_EQUAL: //x >= y same as x > y-1
-				emit("addi "+Register.Temp1()+","+Register.Temp1()+",-1");  //x(lhs) is put in Temp1()
-				emit("slt "+Register.ACC()+","+Register.ACC()+","+Register.Temp1());   //just opposite to LESS_THAN_EQUAL
+			case AATOperator.NOT:   //implement not x as (1-x)
+				emit("addi " + Register.Tmp1() + "," + Register.Zero() + "," + 1);
+				emit("sub"+Register.ACC()+","+Register.Tmp1()+","+Register.ACC());
 				break;
-			case ASTOperatorExpression.NOT:   //implement not x as (1-x)
-				emit("sub"+Register.ACC()+","+"1"+","+Register.ACC());
-				break;
+		}
+		return null;
+
     }
 
 	//Textbook p234 is "$r1"
     public Object VisitRegister(AATRegister expression) { 
 		emit("addi "+Register.ACC()+","+expression.register()+"0");
+		return null;
     }
 	
     public Object VisitCallExpression(AATCallExpression expression) { 
 		// Textbook p236
-		int n = expression.actuals.size();
+		int n = expression.actuals().size();
 		for(int i=n;i>0;i--) {
 			emit("sw "+Register.ACC()+","+"-"+(MachineDependent.WORDSIZE*i-MachineDependent.WORDSIZE)+"("+Register.SP()+")");
 		}
@@ -117,24 +111,26 @@ class CodeGenerator implements AATVisitor {
 		emit("jal "+expression.label().toString());
 		emit("addi "+Register.SP()+","+Register.SP()+","+MachineDependent.WORDSIZE*n);
 		emit("addi "+Register.ACC()+","+Register.Result()+","+Register.Zero());
-		
+		return null;	
     }
 	
 	//Textbook p233
     public Object VisitCallStatement(AATCallStatement statement) {
-		int n = statement.actuals.size();
+		int n = statement.actuals().size();
 		for(int i=n;i>0;i--) {
 			emit("sw "+Register.ACC()+","+"-"+(MachineDependent.WORDSIZE*i-MachineDependent.WORDSIZE)+"("+Register.SP()+")");
 		}
 		emit("addi "+Register.SP()+","+Register.SP()+","+"-"+MachineDependent.WORDSIZE*n);
-		emit("jal "+expression.label().toString());
+		emit("jal "+statement.label().toString());
 		emit("addi "+Register.SP()+","+Register.SP()+","+MachineDependent.WORDSIZE*n);
+		return null;
     }
 
     public Object VisitConditionalJump(AATConditionalJump statement) {
-		statement().test().Accept(this);
+		statement.test().Accept(this);
 		emit("bgtz "+Register.ACC()+statement.label().toString());  
-    }
+    	return null;
+	}
     
     public Object VisitEmpty(AATEmpty statement) {
 		return null;
@@ -159,6 +155,7 @@ class CodeGenerator implements AATVisitor {
 			emit("lw "+Register.Tmp1()+","+MachineDependent.WORDSIZE+"("+Register.ESP()+")");
 			emit("sw"+Register.ACC()+", 0("+Register.Tmp1()+")");
 		}
+		return null;
     }
     public Object VisitReturn(AATReturn statement) {
 	emit("jr " + Register.ReturnAddr());
@@ -174,6 +171,7 @@ class CodeGenerator implements AATVisitor {
     public Object VisitSequential(AATSequential statement) {
 		statement.left().Accept(this);
 		statement.right().Accept(this);
+		return null;
     }
     
     public Object VisitConstant(AATConstant expression) {

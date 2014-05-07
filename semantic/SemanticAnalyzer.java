@@ -262,7 +262,7 @@ public class SemanticAnalyzer implements ASTVisitor {
 			}
 
 			public Object VisitNewClassExpression(ASTNewClassExpression newclass) {
-				Type type = typeEnv.find(newclass.type()) 
+				Type type = typeEnv.find(newclass.type());
 				if(type == null ){
 					CompError.message(newclass.line(),"Class not declared");
 					return IntegerType.instance();
@@ -278,7 +278,7 @@ public class SemanticAnalyzer implements ASTVisitor {
 				Type lefttype = (Type)opexpr.left().Accept(this);
 				Type righttype = (Type)opexpr.right().Accept(this);
 
-				if((opexpr.operator() >=1) && (opexpr.operator() <=4) {
+				if((opexpr.operator() >=1) && (opexpr.operator() <=4)) {
 					if((lefttype != IntegerType.instance()) || (righttype != IntegerType.instance())) {
 						CompError.message(opexpr.line(),"wrong type ");
 					}
