@@ -2,7 +2,7 @@ import java.util.Vector;
 
 public class SemanticAnalyzer implements ASTVisitor {
 	
-	AATBuildTree bt;
+	private AATBuildTree bt;
 	private VariableEnvironment varEnv;
 	private FunctionEnvironment funcEnv;
 	private TypeEnvironment typeEnv;
@@ -12,6 +12,8 @@ public class SemanticAnalyzer implements ASTVisitor {
 	private int currentOffset;
 	private String currentFunctionEnd;
 	
+	 private Type functionReturn;
+	 private Label functionEnd;
 	public SemanticAnalyzer() {
 		varEnv = new VariableEnvironment();
 		funcEnv = new FunctionEnvironment();
@@ -20,6 +22,8 @@ public class SemanticAnalyzer implements ASTVisitor {
 		currentClassName = "";
 		bt = new AATBuildTree();
 		currentOffset = 0;
+        functionReturn = null;
+        functionEnd = null;
 	}
 	
 	private void beginClassScope(String name) {
@@ -41,6 +45,7 @@ public class SemanticAnalyzer implements ASTVisitor {
 		if(!(basetype instanceof ArrayType))
 		{
 			CompError.message(array.line(),"array type is not array");
+			return new TypeClass(IntegerType.instance(), null);
 		}
 		TypeClass index = (TypeClass)(array.index().Accept(this));
 		Type indextype = index.type();
@@ -48,7 +53,7 @@ public class SemanticAnalyzer implements ASTVisitor {
 			CompError.message(array.line(),"array type is not integer");
 			return BooleanType.instance();
 		} else {
-			return new TypeClass((ArrayType)basetype, bt.arrayVariable(base.value(), index.value(), MachineDependent.WORDSIZE));
+			return new TypeClass(((ArrayType)basetype).type(), bt.arrayVariable(base.value(), index.value(), MachineDependent.WORDSIZE));
 		}
 	}
 
@@ -80,7 +85,7 @@ public class SemanticAnalyzer implements ASTVisitor {
 	
 	
 	public Object VisitClass(ASTClass astclass) {	
-		if(typeEnv.find(astclass.name()) != null) {
+		/*if(typeEnv.find(astclass.name()) != null) {
 			CompError.message(astclass.line(), "Class "+ astclass.name() + " is already defined in this scope");
 			return null;
 		}
@@ -92,7 +97,46 @@ public class SemanticAnalyzer implements ASTVisitor {
 			astclass.variabledefs().Accept(this);
 		}
 		endClassScope(astclass.name());
-		return bt.emptyStatement();
+		return bt.emptyStatement();  */
+
+		 currentOffset = 0;
+        VariableEntry baseEntry = varEnv.find(astclass.name());
+        if (baseEntry != null) {
+            CompError.message(astclass.line(), "Class " + astclass.name() + " is already defined");
+            return null;
+        }
+
+        astclass.variabledefs().Accept(this);
+
+        Type tc;
+        VariableEnvironment instanceVars = new VariableEnvironment();
+
+        String varStepTypeName;
+        Type varBaseType;
+        Type varStepType;
+
+        for (int i = 0; i < astclass.variabledefs().size(); i++) {
+            varStepTypeName = astclass.variabledefs().elementAt(i).type();
+            varBaseType = typeEnv.find(varStepTypeName);
+            varStepType = varBaseType;
+
+            for (int j = 0; j < astclass.variabledefs().elementAt(i).arraydimension(); j++) {
+                varStepTypeName = varStepTypeName + "[]";
+                varStepType = typeEnv.find(varStepTypeName);
+                if (varStepType == null) {
+                    varStepType = new ArrayType(varBaseType);
+                    typeEnv.insert(varStepTypeName, varStepType);
+                }
+                varBaseType = varStepType;
+            }
+
+            VariableEntry varEntry = new VariableEntry(varStepType, currentOffset);
+            currentOffset += MachineDependent.WORDSIZE;
+            instanceVars.insert(astclass.variabledefs().elementAt(i).name(), varEntry);
+        }
+        tc = new ClassType(instanceVars);
+        typeEnv.insert(astclass.name(), tc);
+        return null;
 	}
 
 	public Object VisitClasses(ASTClasses classes) { 
@@ -106,12 +150,12 @@ public class SemanticAnalyzer implements ASTVisitor {
 		/*Type varType = (Type)classvariable.base().Accept(this);
 		if(!(varType instanceof ClassType) && (varType == null)) {
 		CompError.message(classvariable.line(), "Not a class variable");
-		return IntegerType.instance();
+		return new TypeClass(IntegerType.instance(), null);
 		}
 		VariableEntry classVarEntry = ((ClassType)varType).variables().find(classvariable.variable());
 		if(classVarEntry == null) {
 		CompError.message(classvariable.line(), classvariable.variable() + " is not a member of the class variable");
-		return IntegerType.instance();
+		return new TypeClass(IntegerType.instance(), null);
 		}
 		else {
 		return classVarEntry.type();
@@ -194,15 +238,14 @@ public class SemanticAnalyzer implements ASTVisitor {
 		Type type = typeEnv.find(typeName);
 		if(type == null) {
 			CompError.message(formal.line(),"Type not declared");
-			return IntegerType.instance();
+			return new TypeClass(IntegerType.instance(), null);
 		}
 		for(int i=0; i < formal.arraydimension(); i++){
 			typeName += "[]";
 			if(typeEnv.find(typeName) == null) {
-				type = new ArrayType(type);
-				if(typeEnv.find(typeName) == null)
-					typeEnv.insert(typeName, type);
+				typeEnv.insert(typeName, new ArrayType(type));
 			}
+			type = typeEnv.find(typeName);
 		}
 		
 		varEnv.insert(formal.name(), new VariableEntry(type, currentOffset));
@@ -214,7 +257,8 @@ public class SemanticAnalyzer implements ASTVisitor {
 	public Object VisitFormals(ASTFormals formals) { 
 		Vector types = new Vector();
 		for (int i=0; i<formals.size(); i++) {
-			types.addElement(formals.elementAt(i).Accept(this));
+			types.addElement((Type)formals.elementAt(i).Accept(this));
+			varEnv.insert(formals.elementAt(i).name(), new VariableEntry((Type)formals.elementAt(i).Accept(this), -(i+1)*MachineDependent.WORDSIZE));
 		}
 		return types;
 	}
@@ -302,29 +346,29 @@ public class SemanticAnalyzer implements ASTVisitor {
 	//TODO check 
 	public Object VisitIntegerLiteral(ASTIntegerLiteral literal) {
 				
-		//return IntegerType.instance();
 		return new TypeClass(IntegerType.instance(), bt.constantExpression(literal.value()));
 	}
 
 	public Object VisitNewArrayExpression(ASTNewArrayExpression newarray) {
 		//check the type has been declared
-		String typeName = "";
+		String typeName = newarray.type();
 		Type type = typeEnv.find(typeName);
 		if(type == null ){
 			CompError.message(newarray.line(),"type not declared");
-			return IntegerType.instance();
+			return new TypeClass(IntegerType.instance(), null);
 		}
 		int i;
 		for(i=0; i<newarray.arraydimension();i++){
 			typeName = typeName+"[]";
-			type = new ArrayType(type);
-			if(typeEnv.find(typeName) == null)
-				typeEnv.insert(typeName, type);
+			if(typeEnv.find(typeName) == null) {
+				typeEnv.insert(typeName, new ArrayType(type));
+			}
+			type = typeEnv.find(typeName);
 		}
 		TypeClass elements = (TypeClass)(newarray.elements().Accept(this));
 		if(elements.type() != IntegerType.instance()) {
 			CompError.message(newarray.line(), "Array elements must be an integer");
-			return IntegerType.instance();
+			return new TypeClass(IntegerType.instance(), null);
 		}
 		return new TypeClass(type, bt.allocate(bt.operatorExpression(
 			elements.value(),
@@ -336,7 +380,7 @@ public class SemanticAnalyzer implements ASTVisitor {
 		Type type = typeEnv.find(newclass.type());
 		if(type == null || (!(type instanceof ClassType))){
 			CompError.message(newclass.line(),"Class not declared");
-			return IntegerType.instance();
+			return new TypeClass(IntegerType.instance(), null);
 		}
 		return new TypeClass(type, bt.allocate(bt.operatorExpression(
 			bt.constantExpression(((ClassType)type).variables().size()),
@@ -399,40 +443,63 @@ public class SemanticAnalyzer implements ASTVisitor {
 		if(result == null) {
 			CompError.message(prototype.line(),"Type "+prototype.type()+" is not definded");
 		}
+		varEnv.beginScope();
 		Vector formals = (Vector)(prototype.formals().Accept(this));
+		varEnv.endScope();
 		funcEnv.insert(prototype.name(), new FunctionEntry(result, formals));
 		return bt.emptyStatement();
 	}
 
+
 	public Object VisitFunction(ASTFunction function) {
-		Type result = typeEnv.find(function.type());
-		if(result == null) {
-			CompError.message(function.line(),"Type "+function.type()+" is not definded");
-		}
-		
+		//CompError.message(function.line(),"VisitFunction: #ele in varEnv = " + varEnv.size():);
 		varEnv.beginScope();
-		currentOffset = MachineDependent.WORDSIZE;
-		Vector formals = (Vector)(function.formals().Accept(this));
-		
 		currentOffset = 0;
-		currentFunctionEnd = function.name() + "$end";
+	    FunctionEntry func = funcEnv.find(function.name());
+	    Label startlabel = Label.AbsLabel(function.name());
+	    Label endlabel = Label.AbsLabel(function.name() + "@end");
+		
+		if(func == null) {
+			Type functionType = typeEnv.find(function.type());
+			if(functionType == null) {
+				CompError.message(function.line(),"Type "+function.type()+" is not definded");
+			} else {
+                functionReturn = functionType;
+                functionEnd = endlabel;
+			}
+			Vector formals = (Vector)(function.formals().Accept(this));
+			funcEnv.insert(function.name(), new FunctionEntry(functionType, formals,startlabel,endlabel));
+		} else {
+			Type functionType = typeEnv.find(function.type());
+            if (functionType != func.result()) {
+                CompError.message(function.line(), "Return type of " + function.name() + " is not same as prototype");
+			} else {
+				functionReturn = functionType;
+				functionEnd = endlabel;
+			}
+			Vector formals = null;
+			Vector formalsP = func.formals();
+            if (function.formals() != null)
+                formals = (Vector) function.formals().Accept(this);
+            if (formals.size() != formalsP.size())
+                CompError.message(function.line(), "Number of parameter of " + function.name() + " is not same as prototype");
+            else {
+                for (int i = 0; i < formals.size(); i++) {
+                    if (formals.elementAt(i) != formalsP.elementAt(i))
+                        CompError.message(function.line(), "Type of #" + (i + 1) + " formal parameter is not same as prototype");
+                }
+            }
+		}
 		AATStatement body = (AATStatement)(function.body().Accept(this));
-		varEnv.endScope();
-				
-		funcEnv.insert(function.name(), new FunctionEntry(result, formals));
-		
-		String label = function.name();
-		if(label.equals("main"))
-			label = label + "1";
-		
-		return bt.functionDefinition(body, 
-			function.formals().size() * MachineDependent.WORDSIZE, 
-				Label.AbsLabel(label),
-				Label.AbsLabel(currentFunctionEnd));
-	}
-  
+       	varEnv.endScope();
+        return bt.functionDefinition(body,
+                                     currentOffset + 12,
+                                     startlabel,
+                                     endlabel); }
+      
+	
 	public Object VisitReturnStatement(ASTReturnStatement ret) {
-		TypeClass returnStatement;
+/*	TypeClass returnStatement;
 		Label functionend;
 				
 		if(ret.value() != null){
@@ -441,13 +508,21 @@ public class SemanticAnalyzer implements ASTVisitor {
 		}
 		CompError.message(ret.line(),"ReturnStatement returns null");
 		return bt.emptyStatement();
-		/** if (ret.value() != null){
-			Type type = ret.value().Accept(this);
-			return type;
-			}
-			CompError.message(ret.line(),"ReturnStatement returns null");	
-			return null;*/	
-		}
+		} */
+		
+		Type retType = VoidType.instance();
+        AATExpression retValue = null;
+        if (ret.value() != null) {
+            TypeClass retResult = (TypeClass) ret.value().Accept(this);
+            retType = retResult.type();
+            retValue = retResult.value();
+        }
+        if (functionReturn != retType)
+            CompError.message(ret.line(), "Return type doesn't match");
+        return bt.returnStatement(retValue,
+                                  functionEnd);
+    }
+
 
 		public Object VisitStatements(ASTStatements statements) { 
 			AATStatement res = bt.emptyStatement();
@@ -472,22 +547,31 @@ public class SemanticAnalyzer implements ASTVisitor {
 		//int a; int a[];   analyzeExpression: return type+AATExpression.
 		public Object VisitInstanceVariableDef(ASTInstanceVariableDef variabledef) {
 			String typeName = variabledef.type();
-			Type varType = varEnv.find(typeName).type();
+			Type varType = typeEnv.find(variabledef.type());
+			Type varFinalType;
 			if(varType == null) {
 				CompError.message(variabledef.line(),"Type " + typeName + " not found");
+				return null;
+			} else {
+				for(int i = 0;i < variabledef.arraydimension();++i) {
+					typeName += "[]";
+					varFinalType = typeEnv.find(typeName);
+					if(varFinalType == null) {
+						varFinalType = new ArrayType(varType);
+						typeEnv.insert(typeName, varFinalType);
+					}
+					varType = varFinalType;
+				}
 			}
-			for(int i = 0;i < variabledef.arraydimension();++i) {
-				typeName += "[]";
-				varType = new ArrayType(varType);
-				if(typeEnv.find(typeName) == null)
-					typeEnv.insert(typeName, varType);
-			}
-			ClassType classtype = (ClassType)(typeEnv.find(currentClassName));
+				return null;
+		}
+
+
+		/*	ClassType classtype = (ClassType)(typeEnv.find(currentClassName));
 			VariableEnvironment env = classtype.variables();
 			env.insert(variabledef.name(), new VariableEntry(varType, currentOffset));
 			currentOffset -= MachineDependent.WORDSIZE;
-			return bt.emptyStatement();
-				
+			return bt.emptyStatement();*/
 			/*String typeName = variabledef.type();
 			Type varType = varEnv.find(typeName);
 			if(varType == null) {
@@ -501,7 +585,6 @@ public class SemanticAnalyzer implements ASTVisitor {
 			}
 			typeEnv.find(currentClassName).variables().insert(variabledef.name(),varType);
 			return null; */
-		}
 
 		// analyzeExpression. retrun type+AATExpression.
 		public Object VisitInstanceVariableDefs(ASTInstanceVariableDefs variabledefs) { 
@@ -510,12 +593,13 @@ public class SemanticAnalyzer implements ASTVisitor {
 			for (i=0; i<variabledefs.size(); i++) {
 				variabledefs.elementAt(i).Accept(this);
 			}
-			return bt.emptyStatement();
+			return null;
 		}
 
 			
 		public Object VisitVariableExpression(ASTVariableExpression variableexpression) { 
-			return variableexpression.variable().Accept(this);
+			TypeClass varExp = (TypeClass) variableexpression.variable().Accept(this);
+			return varExp;
 		}
 
 		public Object VisitWhileStatement(ASTWhileStatement whilestatement) {
@@ -537,25 +621,35 @@ public class SemanticAnalyzer implements ASTVisitor {
 			Type varType = typeEnv.find(typeName);
 			TypeClass init = null;
 			AATStatement res = bt.emptyStatement();
+			
+			VariableEntry baseEntry = varEnv.find(variabledef.name());
+	        if (baseEntry != null) {
+	            CompError.message(variabledef.line(), "Variable " + variabledef.name() + " is already declared");
+	            return bt.emptyStatement();
+	        }
 			if(varType == null) {
 				CompError.message(variabledef.line(),"Type " + typeName + " not found");
+				return bt.emptyStatement();
 			}
 			for(int i = 0;i < variabledef.arraydimension();++i) {
 				typeName += "[]";
-				varType = new ArrayType(varType);
-				if(typeEnv.find(typeName) == null)
-					typeEnv.insert(typeName, varType);
+				if(typeEnv.find(typeName) == null) {
+					typeEnv.insert(typeName, new ArrayType(varType));
+				}
+				varType = typeEnv.find(typeName);
 			}
+			varEnv.insert(variabledef.name(), new VariableEntry(varType, currentOffset));
+			currentOffset += MachineDependent.WORDSIZE;
+
 			if(variabledef.init() != null) {
 				init = (TypeClass)(variabledef.init().Accept(this));
 				if(varType != init.type()) {
 					CompError.message(variabledef.line(),"Exp type and var type incompetible");
+					return bt.emptyStatement();
 				}
+				 return bt.assignmentStatement(bt.baseVariable(currentOffset - MachineDependent.WORDSIZE),init.value());
 			}
-			varEnv.insert(variabledef.name(), new VariableEntry(varType, currentOffset));
-			if(init != null)
-				res = bt.assignmentStatement(bt.baseVariable(currentOffset), init.value());
-			currentOffset -= MachineDependent.WORDSIZE;
-			return res;
+			return bt.emptyStatement();
 		}	
-	}
+
+}

@@ -215,7 +215,7 @@ public class simplejava implements simplejavaConstants {
     trace_call("NewArrayExpression");
     try {
  ASTNewArrayExpression result; Token t; String type; ASTExpression elements;int arraydimension;
-         arraydimension=0;
+         arraydimension=1;
       t = jj_consume_token(NEW);
       type = VariableType();
       jj_consume_token(LBRACKET);
@@ -977,6 +977,8 @@ ASTOperatorExpression operatorExp;
         variable = Variable();
         t = jj_consume_token(PLUS);
         jj_consume_token(PLUS);
+         result = new ASTAssignmentStatement(variable, new ASTOperatorExpression(new ASTVariableExpression(variable, variable.line()), new ASTIntegerLiteral(1, variable.line()),t.image,t.beginLine), t.beginLine);
+         {if (true) return result;}
       } else if (jj_2_10(3)) {
         variable = Variable();
         t = jj_consume_token(MINUS);
@@ -1024,11 +1026,11 @@ ASTOperatorExpression operatorExp;
           name = jj_consume_token(IDENTIFIER);
           label_17:
           while (true) {
-            jj_consume_token(LPAREN);
-            jj_consume_token(RPAREN);
-                                                                                                 arrdim++;
+            jj_consume_token(LBRACKET);
+            jj_consume_token(RBRACKET);
+                                                                                                     arrdim++;
             switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
-            case LPAREN:
+            case LBRACKET:
               ;
               break;
             default:
@@ -1046,7 +1048,7 @@ ASTOperatorExpression operatorExp;
             ;
           }
           jj_consume_token(SEMICOLON);
-         result = new ASTVariableDefStatement(type.image, name.image, init, type.beginLine);
+         result = new ASTVariableDefStatement(type.image, name.image, arrdim, init, type.beginLine);
           {if (true) return result;}
           break;
         default:
@@ -1157,16 +1159,19 @@ ASTOperatorExpression operatorExp;
   ASTStatement result;
       if (jj_2_12(2)) {
         result = VariableDeclarationStatement();
+                                                             {if (true) return result;}
       } else if (jj_2_13(3)) {
         result = IncrementStatement();
+                                                   {if (true) return result;}
       } else {
         switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
         case IDENTIFIER:
           result = AssignmentStatement();
+                                        {if (true) return result;}
           break;
         case SEMICOLON:
           result = EmptyStatement();
-         {if (true) return result;}
+                                   {if (true) return result;}
           break;
         default:
           jj_la1[34] = jj_gen;
@@ -1195,7 +1200,7 @@ ASTOperatorExpression operatorExp;
 
 //ASTFormal: {arraydimension=0;} type = VariableType() name = <IDENTIFIER> (<LBRACKET><RBRACKET> {arraydimension++;})*
 /*{result =new ASTFormals();} 
-	
+
 	<LPAREN> (formal = FormalParameter() {result.addElement(formal);}(<COMMA> formal = FormalParameter() {result.addElement(formal);})*)? <RPAREN>
 	{return result;}
 */
@@ -1370,6 +1375,13 @@ ASTOperatorExpression operatorExp;
     return false;
   }
 
+  static private boolean jj_3_10() {
+    if (jj_3R_20()) return true;
+    if (jj_scan_token(MINUS)) return true;
+    if (jj_scan_token(MINUS)) return true;
+    return false;
+  }
+
   static private boolean jj_3R_32() {
     if (jj_scan_token(IDENTIFIER)) return true;
     return false;
@@ -1380,17 +1392,15 @@ ASTOperatorExpression operatorExp;
     return false;
   }
 
-  static private boolean jj_3_10() {
-    if (jj_3R_20()) return true;
-    if (jj_scan_token(MINUS)) return true;
-    if (jj_scan_token(MINUS)) return true;
-    return false;
-  }
-
   static private boolean jj_3R_23() {
     if (jj_3R_20()) return true;
     if (jj_scan_token(GETS)) return true;
     if (jj_3R_35()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_27() {
+    if (jj_scan_token(GETS)) return true;
     return false;
   }
 
@@ -1406,11 +1416,6 @@ ASTOperatorExpression operatorExp;
 
   static private boolean jj_3R_35() {
     if (jj_3R_43()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_27() {
-    if (jj_scan_token(GETS)) return true;
     return false;
   }
 
@@ -1455,7 +1460,17 @@ ASTOperatorExpression operatorExp;
     return false;
   }
 
+  static private boolean jj_3_13() {
+    if (jj_3R_24()) return true;
+    return false;
+  }
+
   static private boolean jj_3_7() {
+    if (jj_3R_25()) return true;
+    return false;
+  }
+
+  static private boolean jj_3_12() {
     if (jj_3R_25()) return true;
     return false;
   }
@@ -1466,11 +1481,6 @@ ASTOperatorExpression operatorExp;
     return false;
   }
 
-  static private boolean jj_3_13() {
-    if (jj_3R_24()) return true;
-    return false;
-  }
-
   static private boolean jj_3_6() {
     if (jj_3R_24()) return true;
     return false;
@@ -1478,11 +1488,6 @@ ASTOperatorExpression operatorExp;
 
   static private boolean jj_3_8() {
     if (jj_3R_26()) return true;
-    return false;
-  }
-
-  static private boolean jj_3_12() {
-    if (jj_3R_25()) return true;
     return false;
   }
 
@@ -1579,12 +1584,6 @@ ASTOperatorExpression operatorExp;
     return false;
   }
 
-  static private boolean jj_3R_42() {
-    if (jj_scan_token(PERIOD)) return true;
-    if (jj_scan_token(IDENTIFIER)) return true;
-    return false;
-  }
-
   static private boolean jj_3R_26() {
     if (jj_scan_token(IF)) return true;
     if (jj_scan_token(LPAREN)) return true;
@@ -1592,16 +1591,15 @@ ASTOperatorExpression operatorExp;
     return false;
   }
 
-  static private boolean jj_3R_36() {
-    if (jj_scan_token(IDENTIFIER)) return true;
+  static private boolean jj_3R_42() {
+    if (jj_scan_token(PERIOD)) return true;
     if (jj_scan_token(IDENTIFIER)) return true;
     return false;
   }
 
-  static private boolean jj_3R_22() {
-    if (jj_scan_token(NEW)) return true;
-    if (jj_3R_34()) return true;
-    if (jj_scan_token(LBRACKET)) return true;
+  static private boolean jj_3R_36() {
+    if (jj_scan_token(IDENTIFIER)) return true;
+    if (jj_scan_token(IDENTIFIER)) return true;
     return false;
   }
 
@@ -1622,6 +1620,13 @@ ASTOperatorExpression operatorExp;
     jj_scanpos = xsp;
     if (jj_3R_36()) return true;
     }
+    return false;
+  }
+
+  static private boolean jj_3R_22() {
+    if (jj_scan_token(NEW)) return true;
+    if (jj_3R_34()) return true;
+    if (jj_scan_token(LBRACKET)) return true;
     return false;
   }
 
@@ -1678,10 +1683,10 @@ ASTOperatorExpression operatorExp;
       jj_la1_init_1();
    }
    private static void jj_la1_init_0() {
-      jj_la1_0 = new int[] {0x2010000,0x2010000,0x2000000,0x8000000,0x2000000,0x0,0x0,0x2000000,0x0,0x60000,0x0,0x0,0x3000000,0x93f00000,0x0,0x2e00000,0x0,0x0,0x0,0x0,0x0,0x14000000,0x14000000,0x60000000,0x60000000,0x11000000,0x80000000,0xa087400,0xa086400,0x0,0x80000000,0x0,0x2000000,0x8000,0xa000000,0x93f00000,};
+      jj_la1_0 = new int[] {0x2010000,0x2010000,0x2000000,0x8000000,0x2000000,0x0,0x0,0x2000000,0x0,0x60000,0x0,0x0,0x3000000,0x93f00000,0x0,0x2e00000,0x0,0x0,0x0,0x0,0x0,0x14000000,0x14000000,0x60000000,0x60000000,0x11000000,0x80000000,0xa087400,0xa086400,0x0,0x0,0x0,0x2000000,0x8000,0xa000000,0x93f00000,};
    }
    private static void jj_la1_init_1() {
-      jj_la1_1 = new int[] {0x0,0x0,0x0,0x2,0x0,0x8,0x40,0x0,0x8,0x0,0x28,0x28,0x0,0x0,0x40,0x0,0x10000,0x8000,0x400,0x7a80,0x7a80,0x0,0x0,0x0,0x0,0x0,0x0,0x2,0x2,0x100,0x0,0x100,0x0,0x0,0x0,0x0,};
+      jj_la1_1 = new int[] {0x0,0x0,0x0,0x2,0x0,0x8,0x40,0x0,0x8,0x0,0x28,0x28,0x0,0x0,0x40,0x0,0x10000,0x8000,0x400,0x7a80,0x7a80,0x0,0x0,0x0,0x0,0x0,0x0,0x2,0x2,0x100,0x8,0x100,0x0,0x0,0x0,0x0,};
    }
   static final private JJCalls[] jj_2_rtns = new JJCalls[13];
   static private boolean jj_rescan = false;

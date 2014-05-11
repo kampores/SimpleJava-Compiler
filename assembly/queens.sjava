@@ -43,14 +43,16 @@ boolean Legal(int numcols, int board[]) {
    boolean legal; 
 
    legal = true;
+   
 
    for (i=0; i < numcols; i++) {
       for (j=i+1; j<numcols; j++) {
  	 if ((board[i] == board[j]) ||
-	     (Abs(i-j) == Abs(board[i]-board[j]))) 
+	     (Abs(i-j) == Abs(board[i]-board[j])))  {
 	    legal = false;
-      }
-   }  
+         } 
+      }  
+   }
    return legal;
 }
 
@@ -67,7 +69,7 @@ void Solve(int numcols, int board[], int size) {
          board[numcols-1] = i;
 	 if (Legal(numcols, board)) {
 	    Solve(numcols+1, board, size);
-         }
+         } 
       }
 }     
 

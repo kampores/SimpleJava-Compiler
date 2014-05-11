@@ -166,7 +166,7 @@ String VariableType():
 {
      t = <IDENTIFIER> {return t.image;}
 }
-	
+
 
 // 5th Expression
 /*void NewExpression():
@@ -183,11 +183,11 @@ ASTNewClassExpression NewClassExpression():
 	{result = new ASTNewClassExpression(type, t.beginLine);}
 	{return result;}
 }
-	
+
 ASTNewArrayExpression NewArrayExpression():
 {ASTNewArrayExpression result; Token t; String type; ASTExpression elements;int arraydimension;}
 {
-	{arraydimension=0;} t=<NEW> type = VariableType() <LBRACKET> elements = integerConstant() <RBRACKET> (<LBRACKET><RBRACKET> {arraydimension++;} )* 
+	{arraydimension=1;} t=<NEW> type = VariableType() <LBRACKET> elements = integerConstant() <RBRACKET> (<LBRACKET><RBRACKET> {arraydimension++;} )* 
 	{result = new ASTNewArrayExpression(type, elements, arraydimension, t.beginLine);}
 {return result;}
 }
@@ -196,7 +196,7 @@ ASTFormals FormalParameterList():
 {	
 //	<LPAREN> (FormalParameter() (<COMMA> FormalParameter())*)?  <RPAREN> 
 	{result =new ASTFormals();} 
-	
+
 	<LPAREN> (formal = FormalParameter() {result.addElement(formal);}(<COMMA> formal = FormalParameter() {result.addElement(formal);})*)? <RPAREN>
 	{return result;}
 
@@ -333,7 +333,7 @@ ASTFunctionCallExpression CustomizedFunctionCall():
 	t = <IDENTIFIER> <LPAREN> {result = new ASTFunctionCallExpression(t.image, t.beginLine);} (formal = OrOperatorExpression() {result.addElement(formal);} (<COMMA> formal = OrOperatorExpression() {result.addElement(formal);} )*)* <RPAREN>
 	{return result;}
 }
-	
+
 //Three built-in function and a customized function.
 ASTFunctionCallExpression FunctionCall():
 {ASTFunctionCallExpression result; }
@@ -445,7 +445,7 @@ ASTStatement Statement():
 |	result= BlockStatement()
 	{return result;}
 }
-	
+
 
 ASTAssignmentStatement AssignmentStatement():
 {ASTAssignmentStatement result; ASTVariable variable; ASTExpression value;Token t;}
@@ -454,13 +454,15 @@ ASTAssignmentStatement AssignmentStatement():
 	{result = new ASTAssignmentStatement(variable,value,t.beginLine);}
 	{return result;}
 }
-	
+
 // Incrementstatement just like <variable>++ or <variable>-- : x++  converted to x=x+1
 ASTAssignmentStatement IncrementStatement():
 {ASTAssignmentStatement result; ASTVariable variable; Token t; ASTExpression value; 
 ASTOperatorExpression operatorExp;}
 {
 	LOOKAHEAD(3) variable = Variable() t=<PLUS><PLUS> 	
+	{result = new ASTAssignmentStatement(variable, new ASTOperatorExpression(new ASTVariableExpression(variable, variable.line()), new ASTIntegerLiteral(1, variable.line()),t.image,t.beginLine), t.beginLine);}	
+	{return result;}
 |   LOOKAHEAD(3) variable = Variable() t = <MINUS><MINUS> 	
 	{result = new ASTAssignmentStatement(variable, new ASTOperatorExpression(new ASTVariableExpression(variable, variable.line()), new ASTIntegerLiteral(1, variable.line()),t.image,t.beginLine), t.beginLine);}	
 	{return result;}
@@ -473,8 +475,8 @@ ASTVariableDefStatement VariableDeclarationStatement():
 {ASTVariableDefStatement result; Token type; Token name; ASTExpression init; ASTVariable variable; int arrdim;}
 {
 	LOOKAHEAD(3) {init = null;} (type = <IDENTIFIER>) name = <IDENTIFIER> (<GETS> init=OrOperatorExpression())? <SEMICOLON>	{result = new ASTVariableDefStatement(type.image, name.image, init, type.beginLine);} {return result;}
-|	{init = null; arrdim = 0;} (type = <IDENTIFIER>) name = <IDENTIFIER> (<LPAREN> <RPAREN> {arrdim++;})+ (<GETS> init=OrOperatorExpression())? <SEMICOLON>
-	{result = new ASTVariableDefStatement(type.image, name.image, init, type.beginLine);}
+|	{init = null; arrdim = 0;} (type = <IDENTIFIER>) name = <IDENTIFIER> (<LBRACKET> <RBRACKET> {arrdim++;})+ (<GETS> init=OrOperatorExpression())? <SEMICOLON>
+	{result = new ASTVariableDefStatement(type.image, name.image, arrdim, init, type.beginLine);}
 	{ return result;}
 }
 
@@ -519,11 +521,10 @@ ASTForStatement ForStatement():
 { ASTStatement result; }
 {
 
-	LOOKAHEAD(2)result = VariableDeclarationStatement()
-|	LOOKAHEAD(3)result = IncrementStatement()
-|	result = AssignmentStatement()
-|	result = EmptyStatement()
-	{return result;}
+	LOOKAHEAD(2)result = VariableDeclarationStatement() {return result;}
+|	LOOKAHEAD(3)result = IncrementStatement() {return result;}
+|	result = AssignmentStatement() {return result;}
+|	result = EmptyStatement() {return result;}
 } 
 
 ASTEmptyStatement EmptyStatement():
@@ -536,7 +537,7 @@ ASTEmptyStatement EmptyStatement():
 
 //ASTFormal: {arraydimension=0;} type = VariableType() name = <IDENTIFIER> (<LBRACKET><RBRACKET> {arraydimension++;})*
 /*{result =new ASTFormals();} 
-	
+
 	<LPAREN> (formal = FormalParameter() {result.addElement(formal);}(<COMMA> formal = FormalParameter() {result.addElement(formal);})*)? <RPAREN>
 	{return result;}
 */

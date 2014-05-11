@@ -25,11 +25,7 @@ public class ASTPrintTree implements  ASTVisitor {
     public Object VisitAssignmentStatement(ASTAssignmentStatement assign) {
 	Print("Assign (lhs/rhs)");
 	indentlevel++;
-	Type variableType = (Type) assign.variable().Accept(this);
-	Type valueType = assign.variable().Accept(this);
-	if(variableType != valueType) {
-		comerr
-	}
+	assign.variable().Accept(this);
 	assign.value().Accept(this);
 	indentlevel--;
 	return null;
